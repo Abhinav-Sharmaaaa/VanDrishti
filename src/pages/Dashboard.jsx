@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { Bell, User, Plus } from 'lucide-react'
 import { Line } from 'react-chartjs-2'
 import {
@@ -6,10 +6,19 @@ import {
   LineElement, Filler, Tooltip as ChartTooltip
 } from 'chart.js'
 import ForestMap from '../components/ForestMap'
+import AnimatedCounter from '../components/AnimatedCounter'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip)
 
-function generateTrendData() {
+const zoneInfo = {
+  'corbett-a': { name: 'Corbett-A', fhi: 42, status: 'watch', label: 'WATCH — Declining trend', delta: '↓ 18 points vs last month', ndvi: 68, bio: 48, thermal: 22, moisture: 61, thermalEvents: 7, carbon: '2,847t', tipping: '5 days' },
+  'corbett-b': { name: 'Corbett-B', fhi: 78, status: 'healthy', label: 'HEALTHY — Stable', delta: '↑ 3 points vs last month', ndvi: 82, bio: 71, thermal: 85, moisture: 74, thermalEvents: 1, carbon: '4,102t', tipping: '—' },
+  'sundarbans-a': { name: 'Sundarbans-A', fhi: 61, status: 'healthy', label: 'HEALTHY — Minor variance', delta: '↓ 4 points vs last month', ndvi: 74, bio: 62, thermal: 56, moisture: 52, thermalEvents: 4, carbon: '3,891t', tipping: '12 days' },
+}
+
+const statusColors = { healthy: '#22A95C', watch: '#D97706', alert: '#C95C0C', critical: '#DC3545' }
+
+function generateTrendData(fhi) {
   const labels = []
   const data = []
   const today = new Date()
@@ -17,17 +26,20 @@ function generateTrendData() {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
     labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
-    if (i > 20) data.push(62 + Math.random() * 8)
-    else if (i > 10) data.push(55 + Math.random() * 6)
-    else if (i > 5) data.push(48 + Math.random() * 5)
-    else data.push(40 + Math.random() * 5)
+    if (i > 20) data.push(fhi + 20 + Math.random() * 8)
+    else if (i > 10) data.push(fhi + 10 + Math.random() * 6)
+    else if (i > 5) data.push(fhi + 5 + Math.random() * 5)
+    else data.push(fhi + Math.random() * 5 - 2)
   }
   return { labels, data }
 }
 
-const trend = generateTrendData()
-
 export default function Dashboard() {
+  const [activeZone, setActiveZone] = useState('corbett-a')
+  const zone = zoneInfo[activeZone]
+  const color = statusColors[zone.status]
+  const trend = generateTrendData(zone.fhi)
+
   return (
     <>
       {/* Top Bar */}
@@ -37,9 +49,16 @@ export default function Dashboard() {
         </div>
         <div className="top-bar-center">
           <div className="zone-tabs">
-            <button className="zone-tab active">Corbett-A</button>
-            <button className="zone-tab active healthy">Corbett-B</button>
-            <button className="zone-tab active healthy">Sundarbans-A</button>
+            {Object.entries(zoneInfo).map(([id, z]) => (
+              <button
+                key={id}
+                className={`zone-tab ${activeZone === id ? 'active' : ''} ${activeZone === id && z.status === 'healthy' ? 'healthy' : ''}`}
+                onClick={() => setActiveZone(id)}
+                style={{ transition: 'all 0.2s ease' }}
+              >
+                {z.name}
+              </button>
+            ))}
             <button className="btn btn-ghost btn-sm"><Plus size={14}/>Add Zone</button>
           </div>
         </div>
@@ -57,32 +76,32 @@ export default function Dashboard() {
       <div className="two-col col-60-40" style={{ minHeight: 460 }}>
         {/* Left: Map */}
         <div className="map-card">
-          <ForestMap activeZone="corbett-a" />
+          <ForestMap activeZone={activeZone} />
           <div className="map-overlay">
             <div className="live-pill">
               <span className="blink-dot"></span>
               LIVE
             </div>
             <div className="map-tooltip">
-              <span className="tooltip-dot" style={{ background: '#F59E0B' }}></span>
-              <span>Corbett-A</span>
-              <span style={{ color: '#6B8F72', margin: '0 2px' }}>|</span>
-              <span className="fhi-val">FHI: 42</span>
-              <span style={{ color: '#6B8F72', margin: '0 2px' }}>|</span>
-              <span className="badge badge-watch" style={{ fontSize: 9, padding: '1px 6px' }}>WATCH</span>
+              <span className="tooltip-dot" style={{ background: color }}></span>
+              <span>{zone.name}</span>
+              <span style={{ color: '#6B8872', margin: '0 2px' }}>|</span>
+              <span className="fhi-val">FHI: {zone.fhi}</span>
+              <span style={{ color: '#6B8872', margin: '0 2px' }}>|</span>
+              <span className={`badge badge-${zone.status}`} style={{ fontSize: 9, padding: '1px 6px' }}>{zone.status.toUpperCase()}</span>
             </div>
             <div className="map-legend">
               <div className="map-legend-item">
-                <span className="legend-dot" style={{ background: '#2ECC71' }}></span> Healthy
+                <span className="legend-dot" style={{ background: '#22A95C' }}></span> Healthy
               </div>
               <div className="map-legend-item">
-                <span className="legend-dot" style={{ background: '#F59E0B' }}></span> Watch
+                <span className="legend-dot" style={{ background: '#D97706' }}></span> Watch
               </div>
               <div className="map-legend-item">
-                <span className="legend-dot" style={{ background: '#EA580C' }}></span> Alert
+                <span className="legend-dot" style={{ background: '#C95C0C' }}></span> Alert
               </div>
               <div className="map-legend-item">
-                <span className="legend-dot" style={{ background: '#EF4444' }}></span> Critical
+                <span className="legend-dot" style={{ background: '#DC3545' }}></span> Critical
               </div>
             </div>
             <div className="map-controls">
@@ -93,46 +112,42 @@ export default function Dashboard() {
         </div>
 
         {/* Right Column */}
-        <div className="stack">
+        <div className="stack" key={activeZone}>
           {/* FHI Score */}
           <div className="card">
             <div className="card-title">FOREST HEALTH INDEX</div>
-            <div className="mono text-mono-green" style={{ fontSize: 11, letterSpacing: 2, marginBottom: 4 }}>CORBETT-A</div>
-            <div className="mono text-amber" style={{ fontSize: 72, fontWeight: 700, lineHeight: 1 }}>42</div>
+            <div className="mono text-mono-green" style={{ fontSize: 11, letterSpacing: 2, marginBottom: 4 }}>{zone.name.toUpperCase()}</div>
+            <div className="mono" style={{ fontSize: 72, fontWeight: 700, lineHeight: 1, color }}>
+              <AnimatedCounter value={zone.fhi} duration={1000} />
+            </div>
             <div style={{ margin: '12px 0' }}>
               <div className="gauge-bar">
-                <div className="gauge-dot watch" style={{ left: '42%' }}></div>
+                <div className={`gauge-dot ${zone.status}`} style={{ left: `${zone.fhi}%` }}></div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span className="badge badge-watch">WATCH — Declining trend</span>
-              <span className="text-red" style={{ fontSize: 12 }}>↓ 18 points vs last month</span>
+              <span className={`badge badge-${zone.status}`}>{zone.label}</span>
+              <span className={zone.delta.startsWith('↓') ? 'text-red' : 'text-green'} style={{ fontSize: 12 }}>{zone.delta}</span>
             </div>
           </div>
 
           {/* Signal Breakdown */}
           <div className="card">
             <div className="card-title" style={{ marginBottom: 14 }}>Signal Contributors</div>
-            <div className="progress-row">
-              <span className="progress-label">NDVI Canopy</span>
-              <div className="progress-track"><div className="progress-fill" style={{ width: '68%', background: '#2ECC71' }}></div></div>
-              <span className="progress-value">68%</span>
-            </div>
-            <div className="progress-row">
-              <span className="progress-label">Biodiversity</span>
-              <div className="progress-track"><div className="progress-fill" style={{ width: '48%', background: '#00BFA5' }}></div></div>
-              <span className="progress-value">48%</span>
-            </div>
-            <div className="progress-row">
-              <span className="progress-label">Thermal Events</span>
-              <div className="progress-track"><div className="progress-fill" style={{ width: '22%', background: '#EF4444' }}></div></div>
-              <span className="progress-value">22%</span>
-            </div>
-            <div className="progress-row">
-              <span className="progress-label">Moisture Stress</span>
-              <div className="progress-track"><div className="progress-fill" style={{ width: '61%', background: '#3B82F6' }}></div></div>
-              <span className="progress-value">61%</span>
-            </div>
+            {[
+              { label: 'NDVI Canopy', val: zone.ndvi, color: '#22A95C' },
+              { label: 'Biodiversity', val: zone.bio, color: '#0EA58C' },
+              { label: 'Thermal Events', val: zone.thermal, color: '#DC3545' },
+              { label: 'Moisture Stress', val: zone.moisture, color: '#3B82F6' },
+            ].map(s => (
+              <div className="progress-row" key={s.label}>
+                <span className="progress-label">{s.label}</span>
+                <div className="progress-track">
+                  <div className="progress-fill" style={{ width: `${s.val}%`, background: s.color }}></div>
+                </div>
+                <span className="progress-value">{s.val}%</span>
+              </div>
+            ))}
           </div>
 
           {/* 30-Day Trend */}
@@ -147,11 +162,13 @@ export default function Dashboard() {
                   labels: trend.labels,
                   datasets: [{
                     data: trend.data,
-                    borderColor: '#2ECC71',
+                    borderColor: '#22A95C',
                     borderWidth: 2,
                     pointRadius: 0,
-                    pointHoverRadius: 4,
-                    pointHoverBackgroundColor: '#2ECC71',
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#22A95C',
+                    pointHoverBorderColor: '#FFFFFF',
+                    pointHoverBorderWidth: 2,
                     fill: true,
                     backgroundColor: (ctx) => {
                       const chart = ctx.chart
@@ -202,26 +219,25 @@ export default function Dashboard() {
                 }}
               />
             </div>
-            {/* Threshold annotation */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              <span style={{ width: 20, height: 0, borderTop: '2px dashed #F59E0B' }}></span>
-              <span style={{ fontSize: 10, color: '#F59E0B' }}>Watch Threshold (50)</span>
+              <span style={{ width: 20, height: 0, borderTop: '2px dashed #D97706' }}></span>
+              <span style={{ fontSize: 10, color: '#D97706' }}>Watch Threshold (50)</span>
             </div>
           </div>
 
           {/* Quick Stats */}
           <div className="quick-stats">
             <div className="stat-mini-card">
-              <div className="stat-mini-value text-amber">7</div>
+              <div className="stat-mini-value text-amber"><AnimatedCounter value={zone.thermalEvents} /></div>
               <div className="stat-mini-label">Thermal Events</div>
-              <div className="stat-mini-delta text-amber">↑ HIGH</div>
+              <div className="stat-mini-delta text-amber">{zone.thermalEvents > 4 ? '↑ HIGH' : '↓ LOW'}</div>
             </div>
             <div className="stat-mini-card">
-              <div className="stat-mini-value text-green">2,847t</div>
+              <div className="stat-mini-value text-green">{zone.carbon}</div>
               <div className="stat-mini-label">Carbon Stock CO₂</div>
             </div>
             <div className="stat-mini-card">
-              <div className="stat-mini-value text-red">5 days</div>
+              <div className="stat-mini-value text-red">{zone.tipping}</div>
               <div className="stat-mini-label">Predicted Tipping</div>
             </div>
           </div>
