@@ -57,11 +57,11 @@
 }
 
 [data-theme="dark"] {
-  --bg-primary: #0A1A0E;
-  --bg-surface: #111F14;
-  --bg-elevated: #1A2E1E;
-  --bg-sidebar: #0D1A10;
-  --border-subtle: #1E3323;
+  --bg-primary: #0D0D0D;
+  --bg-surface: #1A1A1A;
+  --bg-elevated: #252525;
+  --bg-sidebar: #111111;
+  --border-subtle: #2E2E2E;
 
   --brand-green: #2ECC71;
   --neon-green: #39FF6A;
@@ -71,18 +71,111 @@
   --alert-orange: #EA580C;
   --critical-red: #EF4444;
 
-  --severity-healthy-bg: #0D2818;
-  --severity-watch-bg: #2A1F00;
-  --severity-alert-bg: #2A1100;
-  --severity-critical-bg: #2A0000;
+  --severity-healthy-bg: #1A2A1A;
+  --severity-watch-bg: #2A2200;
+  --severity-alert-bg: #2A1500;
+  --severity-critical-bg: #2A0505;
 
-  --text-primary: #E8F5E9;
-  --text-secondary: #6B8F72;
+  --text-primary: #EAEAEA;
+  --text-secondary: #8A8A8A;
   --text-mono: #4ADE80;
 
-  --map-bg: #070E09;
-  --overlay-bg: rgba(17, 31, 20, 0.92);
-  --overlay-shadow: rgba(0, 0, 0, 0.3);
+  --map-bg: #0A0A0A;
+  --overlay-bg: rgba(20, 20, 20, 0.92);
+  --overlay-shadow: rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Dark-mode overrides for hardcoded green rgba values ===== */
+[data-theme="dark"] .sidebar-logo .logo-icon svg {
+  filter: drop-shadow(0 0 4px rgba(46, 204, 113, 0.3));
+}
+
+[data-theme="dark"] .nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .btn-primary:hover {
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
+}
+
+[data-theme="dark"] .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .btn-ghost-red:hover {
+  background: rgba(220, 53, 69, 0.12);
+}
+
+[data-theme="dark"] .btn-ghost-amber:hover {
+  background: rgba(217, 119, 6, 0.12);
+}
+
+[data-theme="dark"] .badge-resolved {
+  background: rgba(46, 204, 113, 0.12);
+}
+
+[data-theme="dark"] .alert-row:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .zone-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .zone-card.healthy {
+  border-top: 2px solid rgba(46, 204, 113, 0.45);
+}
+
+[data-theme="dark"] .card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .alert-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .input:focus {
+  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.15);
+}
+
+[data-theme="dark"] .edge-node-status:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .zone-add-card:hover,
+[data-theme="dark"] .register-node-card:hover {
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .sidebar-logo:hover .logo-icon svg {
+  filter: drop-shadow(0 0 8px rgba(46, 204, 113, 0.4));
+}
+
+[data-theme="dark"] .loading-source-pill {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Dark-mode overrides for hardcoded #E8EDE9 backgrounds */
+[data-theme="dark"] .progress-track {
+  background: #252525;
+}
+
+[data-theme="dark"] .data-table td {
+  border-bottom-color: #2E2E2E;
+}
+
+[data-theme="dark"] .node-info-row {
+  border-bottom-color: #2E2E2E;
+}
+
+[data-theme="dark"] .zone-mini-map {
+  background: #1A1A1A;
 }
 
 html,
