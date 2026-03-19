@@ -162,7 +162,7 @@ export default function Dashboard() {
             )}
           </button>
 
-          <div className="user-avatar"><User size={16} /></div>
+          <div className="user-avatar" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }}><User size={16} /></div>
         </div>
       </div>
 
@@ -381,7 +381,7 @@ export default function Dashboard() {
               <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Total Species</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#8B5CF6' }}>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily:'var(--font-mono)', color: '#8B5CF6' }}>
                 {zone.species.birdSpecies}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Bird Species</div>

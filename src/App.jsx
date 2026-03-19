@@ -8,6 +8,7 @@ import Alerts from './pages/Alerts'
 import EdgeNodes from './pages/EdgeNodes'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
+import Profile from './pages/Profile'
 import FetchModal from './components/FetchModal'
 import { isCacheStale, getSettings } from './services/dataCache'
 
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/edge-nodes" element={<EdgeNodes />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </main>
 

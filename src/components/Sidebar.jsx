@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Map, Activity, Bell, TrendingUp, Cpu, Settings, Sun, Moon } from 'lucide-react'
+import { Map, Activity, Bell, TrendingUp, Cpu, Settings, Sun, Moon, User } from 'lucide-react'
 import { useTheme } from '../ThemeContext'
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/edge-nodes', icon: Cpu, label: 'Edge Nodes' },
   { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/profile', icon: User, label: 'Profile' },
 ]
 
 export default function Sidebar() {
