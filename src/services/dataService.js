@@ -1,10 +1,3 @@
-/**
- * Central Data Service — VanDrishti
- *
- * Custom zones drawn on the map are persisted to localStorage and merged
- * with built-in zone definitions at startup.
- */
-
 import { fetchNDVI } from './ndvi'
 import { fetchFireEvents } from './firms'
 import { fetchSpeciesCount } from './gbif'
@@ -13,9 +6,6 @@ import { fetchWeather } from './weather'
 import { fetchTreeCoverLoss } from './gfw'
 import { reverseGeocode } from './geocode'
 
-// ---------------------------------------------------------------------------
-// Built-in zones
-// ---------------------------------------------------------------------------
 const BUILTIN_ZONES = {
   'corbett-a': {
     name: 'Corbett-A', lat: 29.53, lon: 78.77,
@@ -39,11 +29,8 @@ const BUILTIN_ZONES = {
   },
 }
 
-// ---------------------------------------------------------------------------
-// Custom zone persistence
-// ---------------------------------------------------------------------------
 const STORAGE_KEY  = 'vandrishti_custom_zones'
-const DELETED_KEY  = 'vandrishti_deleted_zones'  // persists deleted built-in IDs
+const DELETED_KEY  = 'vandrishti_deleted_zones'  
 
 function loadCustomZones() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
@@ -86,17 +73,17 @@ export function addCustomZone(meta) {
  */
 export function removeCustomZone(id) {
   delete ZONES[id]
-  // Remove from custom zones list (no-op if it was a built-in)
+  
   const custom = loadCustomZones()
   delete custom[id]
   saveCustomZones(custom)
-  // If it was a built-in, record its ID so it stays hidden after reload
+  
   if (id in BUILTIN_ZONES) {
     const deleted = loadDeletedZoneIds()
     deleted.add(id)
     saveDeletedZoneIds(deleted)
   }
-  // Remove from the data cache so useAllZones re-renders immediately
+  
   try {
     const raw = localStorage.getItem('vandrishti_zone_cache')
     if (raw) {
@@ -107,31 +94,75 @@ export function removeCustomZone(id) {
   } catch {}
 }
 
-// ---------------------------------------------------------------------------
-// Mock data (built-in zones)
-// ---------------------------------------------------------------------------
+
+
+
+
+function mockForecast(baseTemp, baseHumidity, conditions) {
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i + 1)
+    const v = (i % 3 - 1) * 2   
+    return {
+      date:     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      tempMax:  baseTemp + Math.abs(v) + 2,
+      tempMin:  baseTemp - Math.abs(v) - 1,
+      humidity: Math.min(100, Math.max(20, baseHumidity + (i % 2 === 0 ? 5 : -5))),
+      rain:     i === 2 ? 2.5 : 0,
+      condition: conditions[i % conditions.length],
+    }
+  })
+}
+
 const MOCK_DATA = {
   'corbett-a': {
     ndvi: 68, fireCount: 7, speciesCount: 89, birdScore: 54, birdSpecies: 62,
-    weather: { temp: 31, humidity: 58, rainfall: 0, windSpeed: 3.2, condition: 'Haze', moistureScore: 42, forecast: [] },
+    weather: {
+      temp: 31, humidity: 58, rainfall: 0, windSpeed: 3.2,
+      condition: 'Haze', description: 'haze', feelsLike: 33,
+      pressure: 1008, visibility: 4, cloudCover: 55,
+      sunrise: '06:12 AM', sunset: '06:48 PM',
+      moistureScore: 42,
+      forecast: mockForecast(31, 58, ['Haze', 'Clear', 'Partly Cloudy', 'Clear', 'Haze']),
+    },
     treeCoverLoss: { totalLossHa: 3200, coverLossPct: 36, yearlyLoss: [] },
     placeName: 'Jim Corbett National Park, Uttarakhand', carbonStock: 2847,
   },
   'corbett-b': {
     ndvi: 82, fireCount: 1, speciesCount: 134, birdScore: 72, birdSpecies: 98,
-    weather: { temp: 28, humidity: 77, rainfall: 2.4, windSpeed: 2.1, condition: 'Partly Cloudy', moistureScore: 75, forecast: [] },
+    weather: {
+      temp: 28, humidity: 77, rainfall: 2.4, windSpeed: 2.1,
+      condition: 'Clouds', description: 'partly cloudy', feelsLike: 30,
+      pressure: 1012, visibility: 9, cloudCover: 40,
+      sunrise: '06:10 AM', sunset: '06:50 PM',
+      moistureScore: 75,
+      forecast: mockForecast(28, 77, ['Clouds', 'Rain', 'Clouds', 'Clear', 'Clouds']),
+    },
     treeCoverLoss: { totalLossHa: 580, coverLossPct: 88, yearlyLoss: [] },
     placeName: 'Jim Corbett Buffer Zone, Uttarakhand', carbonStock: 4102,
   },
   'sundarbans-a': {
     ndvi: 74, fireCount: 4, speciesCount: 112, birdScore: 63, birdSpecies: 85,
-    weather: { temp: 32, humidity: 82, rainfall: 1.1, windSpeed: 4.7, condition: 'Humid', moistureScore: 62, forecast: [] },
+    weather: {
+      temp: 32, humidity: 82, rainfall: 1.1, windSpeed: 4.7,
+      condition: 'Rain', description: 'light rain', feelsLike: 36,
+      pressure: 1005, visibility: 7, cloudCover: 75,
+      sunrise: '05:30 AM', sunset: '05:55 PM',
+      moistureScore: 62,
+      forecast: mockForecast(32, 82, ['Rain', 'Clouds', 'Rain', 'Thunderstorm', 'Clouds']),
+    },
     treeCoverLoss: { totalLossHa: 1800, coverLossPct: 64, yearlyLoss: [] },
     placeName: 'Sundarbans Tiger Reserve, West Bengal', carbonStock: 3891,
   },
   'sundarbans-b': {
     ndvi: 35, fireCount: 12, speciesCount: 41, birdScore: 29, birdSpecies: 34,
-    weather: { temp: 35, humidity: 68, rainfall: 0, windSpeed: 5.8, condition: 'Hot & Dry', moistureScore: 25, forecast: [] },
+    weather: {
+      temp: 35, humidity: 68, rainfall: 0, windSpeed: 5.8,
+      condition: 'Clear', description: 'clear sky, hot & dry', feelsLike: 38,
+      pressure: 1002, visibility: 12, cloudCover: 10,
+      sunrise: '05:28 AM', sunset: '05:52 PM',
+      moistureScore: 25,
+      forecast: mockForecast(35, 68, ['Clear', 'Haze', 'Clear', 'Clear', 'Clouds']),
+    },
     treeCoverLoss: { totalLossHa: 6200, coverLossPct: 8, yearlyLoss: [] },
     placeName: 'Sundarbans South, West Bengal', carbonStock: 589,
   },
@@ -141,15 +172,20 @@ const MOCK_DATA = {
 function customMock(meta) {
   return {
     ndvi: 60, fireCount: 2, speciesCount: 80, birdScore: 50, birdSpecies: 55,
-    weather: { temp: 28, humidity: 65, rainfall: 0.5, windSpeed: 3.0, condition: 'Clear', moistureScore: 55, forecast: [] },
+    weather: {
+      temp: 28, humidity: 65, rainfall: 0.5, windSpeed: 3.0,
+      condition: 'Clear', description: 'clear sky', feelsLike: 29,
+      pressure: 1010, visibility: 10, cloudCover: 20,
+      sunrise: '06:00 AM', sunset: '06:30 PM',
+      moistureScore: 55,
+      forecast: mockForecast(28, 65, ['Clear', 'Clouds', 'Clear', 'Rain', 'Clear']),
+    },
     treeCoverLoss: { totalLossHa: 1000, coverLossPct: 70, yearlyLoss: [] },
     placeName: meta.name, carbonStock: 2000,
   }
 }
 
-// ---------------------------------------------------------------------------
-// FHI computation
-// ---------------------------------------------------------------------------
+
 function computeFHI({ ndvi, fireCount, speciesScore, birdScore, moistureScore, coverLossPct }) {
   return Math.max(0, Math.min(100, Math.round(
     Math.min(100, ndvi)                    * 0.30 +
@@ -168,9 +204,9 @@ function getStatus(fhi) {
   return 'critical'
 }
 
-// ---------------------------------------------------------------------------
-// Single zone fetch
-// ---------------------------------------------------------------------------
+
+
+
 export async function fetchZoneData(zoneId) {
   const meta = ZONES[zoneId]
   if (!meta) throw new Error(`Unknown zone: ${zoneId}`)
@@ -233,9 +269,9 @@ export async function fetchZoneData(zoneId) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// All zones fetch
-// ---------------------------------------------------------------------------
+
+
+
 export async function fetchAllZones() {
   const results = await Promise.allSettled(
     Object.keys(ZONES).map(id => fetchZoneData(id).then(data => [id, data]))
