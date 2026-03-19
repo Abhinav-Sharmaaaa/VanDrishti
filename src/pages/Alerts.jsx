@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronDown, CheckCircle } from 'lucide-react'
 import { Line } from 'react-chartjs-2'
 import {
@@ -114,6 +115,7 @@ function generateAlerts(zones) {
 }
 
 export default function Alerts() {
+  const navigate = useNavigate()
   const { zones: zonesMap, loading } = useAllZones(60_000)
   const [expanded, setExpanded] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
@@ -195,7 +197,7 @@ export default function Alerts() {
               <div className="alert-row-right">
                 <span className="alert-row-time">{alert.time}</span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={e => e.stopPropagation()}>View Zone</button>
+                  <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); navigate(`/zones/${alert.zoneId}`) }}>View Zone</button>
                   {!alert.resolved && (
                     <button className="btn btn-primary btn-sm" onClick={e => e.stopPropagation()}>Dispatch Ranger</button>
                   )}
