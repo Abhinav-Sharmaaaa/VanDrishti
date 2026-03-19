@@ -1697,6 +1697,31 @@ select.input {
   gap: 16px;
 }
 
+/* ===== Info Grid (Dashboard detail cards) ===== */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.info-metric {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.info-metric strong {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
 /* ===== Miscellaneous ===== */
 .mono {
   font-family: var(--font-mono) !important;
@@ -1841,6 +1866,10 @@ select.input {
   .zones-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .info-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1869,6 +1898,10 @@ select.input {
   }
 
   .quick-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .info-grid {
     grid-template-columns: 1fr;
   }
 }
