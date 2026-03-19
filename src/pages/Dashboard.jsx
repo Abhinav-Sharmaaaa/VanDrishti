@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, User, Plus, RefreshCw, AlertTriangle, Trash2 } from 'lucide-react'
 import { Line } from 'react-chartjs-2'
@@ -7,7 +7,7 @@ import ZoneMap from '../components/ZoneMap'
 import FetchModal from '../components/FetchModal'
 import AnimatedCounter from '../components/AnimatedCounter'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { useZoneData, useAllZones, useCacheStatus } from '../hooks/useZoneData'
+import { useZoneData, useAllZones, useCacheStatus, notifyCacheUpdated } from '../hooks/useZoneData'
 import { ZONES, removeCustomZone } from '../services/dataService'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip)
@@ -57,7 +57,7 @@ export default function Dashboard() {
 
   const handleRemoveZone = (id) => {
     removeCustomZone(id)
-    refresh?.()
+    notifyCacheUpdated()
     if (activeZone === id) {
       const remaining = Object.keys(ZONES).filter(k => k !== id)
       setActiveZone(remaining[0] ?? firstZoneId)
@@ -65,10 +65,10 @@ export default function Dashboard() {
     setDeleteTarget(null)
   }
 
-  // Auto-open fetch modal when there's no cached data to show
-  if (!loading && !zone && !fetchOpen) {
-    setFetchOpen(true)
-  }
+  // Auto-open fetch modal on devices with no cache
+  useEffect(() => {
+    if (!loading && !zone) setFetchOpen(true)
+  }, [loading, zone])
 
   if (loading || !zone) return (
     <>

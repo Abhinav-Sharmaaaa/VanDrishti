@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Search, Plus, Trash2, Map, LayoutGrid } from 'lucide-react'
 import ZoneMap from '../components/ZoneMap'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { useAllZones } from '../hooks/useZoneData'
+import { useAllZones, notifyCacheUpdated } from '../hooks/useZoneData'
 import { addCustomZone, removeCustomZone } from '../services/dataService'
 
 function getStatusColor(fhi) {
@@ -64,9 +64,8 @@ export default function Zones() {
   }, [])
 
   const handleZoneDeleted = (id) => {
-    removeCustomZone(id)
-    removeZoneFromCache(id)
-    notifyCacheUpdated()
+    removeCustomZone(id)   // already removes from ZONES registry + localStorage cache
+    notifyCacheUpdated()   // tell useAllZones to re-read from cache
     setPending(prev => prev.filter(z => z.id !== id))
     if (selectedId === id) setSelectedId(null)
     setDelete(null)
