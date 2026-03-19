@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
@@ -6,8 +7,22 @@ import ZoneDetail from './pages/ZoneDetail'
 import Alerts from './pages/Alerts'
 import EdgeNodes from './pages/EdgeNodes'
 import Analytics from './pages/Analytics'
+import Settings from './pages/Settings'
+import FetchModal from './components/FetchModal'
+import { isCacheStale, getSettings } from './services/dataCache'
 
 export default function App() {
+  const [fetchModalOpen, setFetchModalOpen] = useState(false)
+  const [autoFetch, setAutoFetch] = useState(false)
+
+  useEffect(() => {
+    const settings = getSettings()
+    if (settings.autoFetchOnLoad && isCacheStale()) {
+      setAutoFetch(true)
+      setFetchModalOpen(true)
+    }
+  }, [])
+
   return (
     <div className="app-layout">
       <Sidebar />
@@ -20,8 +35,15 @@ export default function App() {
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/edge-nodes" element={<EdgeNodes />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>
+
+      <FetchModal
+        open={fetchModalOpen}
+        onClose={() => setFetchModalOpen(false)}
+        autoFetch={autoFetch}
+      />
     </div>
   )
 }

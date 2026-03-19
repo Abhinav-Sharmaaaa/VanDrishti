@@ -1,69 +1,81 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchZoneData, fetchAllZones } from '../services/dataService'
-
 /**
- * Hook to fetch and auto-refresh data for a single zone.
- * @param {string} zoneId - e.g. 'corbett-a'
- * @param {number} refreshInterval - ms between refreshes (default 60s)
+ * useZoneData hooks — VanDrishti
+ *
+ * All hooks read from the localStorage cache written by dataCache.js / FetchModal.
+ * They do NOT call external APIs directly — that is the FetchModal's job.
+ *
+ * useZoneData(zoneId)   → { data, loading }      single zone
+ * useAllZones()         → { zones, loading }      all zones as map
+ * useCacheStatus()      → { meta, stale, ageMin } cache health info
  */
-export function useZoneData(zoneId, refreshInterval = 60_000) {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const timerRef = useRef(null)
 
-  const load = useCallback(async () => {
-    try {
-      setError(null)
-      const result = await fetchZoneData(zoneId)
-      setData(result)
-    } catch (err) {
-      console.error('[useZoneData]', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [zoneId])
+import { useState, useEffect, useCallback } from 'react'
+import { getCachedZones, getCacheMeta, isCacheStale, cacheAgeMinutes } from '../services/dataCache'
 
-  useEffect(() => {
-    setLoading(true)
-    load()
-    timerRef.current = setInterval(load, refreshInterval)
-    return () => clearInterval(timerRef.current)
-  }, [load, refreshInterval])
+// ---------------------------------------------------------------------------
+// Internal: subscribe to cache updates via a custom event
+// FetchModal dispatches 'vandrishti:cache-updated' after each successful fetch
+// ---------------------------------------------------------------------------
+const CACHE_EVENT = 'vandrishti:cache-updated'
 
-  return { data, loading, error, refetch: load }
+export function notifyCacheUpdated() {
+  window.dispatchEvent(new CustomEvent(CACHE_EVENT))
 }
 
-/**
- * Hook to fetch and auto-refresh data for ALL zones.
- * @param {number} refreshInterval - ms between refreshes (default 60s)
- */
-export function useAllZones(refreshInterval = 60_000) {
-  const [zones, setZones] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const timerRef = useRef(null)
+// ---------------------------------------------------------------------------
+// useAllZones — returns all zones from cache
+// ---------------------------------------------------------------------------
+export function useAllZones() {
+  const [zones, setZones]   = useState(() => getCachedZones() ?? {})
+  const [loading, setLoading] = useState(() => !getCachedZones())
 
-  const load = useCallback(async () => {
-    try {
-      setError(null)
-      const result = await fetchAllZones()
-      setZones(result)
-    } catch (err) {
-      console.error('[useAllZones]', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+  const refresh = useCallback(() => {
+    const cached = getCachedZones()
+    if (cached) { setZones(cached); setLoading(false) }
   }, [])
 
   useEffect(() => {
-    setLoading(true)
-    load()
-    timerRef.current = setInterval(load, refreshInterval)
-    return () => clearInterval(timerRef.current)
-  }, [load, refreshInterval])
+    // Initial read
+    refresh()
 
-  return { zones, loading, error, refetch: load }
+    // Listen for cache updates from FetchModal
+    window.addEventListener(CACHE_EVENT, refresh)
+    return () => window.removeEventListener(CACHE_EVENT, refresh)
+  }, [refresh])
+
+  return { zones, loading, refresh }
+}
+
+// ---------------------------------------------------------------------------
+// useZoneData — returns a single zone from cache
+// ---------------------------------------------------------------------------
+export function useZoneData(zoneId) {
+  const { zones, loading } = useAllZones()
+  const data = zones[zoneId] ?? null
+  return { data, loading: loading || (!data && !Object.keys(zones).length) }
+}
+
+// ---------------------------------------------------------------------------
+// useCacheStatus — metadata about the cache (used by Dashboard & Settings)
+// ---------------------------------------------------------------------------
+export function useCacheStatus() {
+  const [meta, setMeta]   = useState(getCacheMeta)
+  const [stale, setStale] = useState(isCacheStale)
+  const [ageMin, setAgeMin] = useState(cacheAgeMinutes)
+
+  const refresh = useCallback(() => {
+    setMeta(getCacheMeta())
+    setStale(isCacheStale())
+    setAgeMin(cacheAgeMinutes())
+  }, [])
+
+  useEffect(() => {
+    refresh()
+    window.addEventListener(CACHE_EVENT, refresh)
+    // Also tick every minute to update age display
+    const t = setInterval(refresh, 60_000)
+    return () => { window.removeEventListener(CACHE_EVENT, refresh); clearInterval(t) }
+  }, [refresh])
+
+  return { meta, stale, ageMin, refresh }
 }

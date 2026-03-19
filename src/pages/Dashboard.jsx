@@ -1,15 +1,14 @@
 import { useState } from 'react'
-import { Bell, User, Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, User, Plus, RefreshCw, AlertTriangle, Trash2 } from 'lucide-react'
 import { Line } from 'react-chartjs-2'
-import {
-  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
-  LineElement, Filler, Tooltip as ChartTooltip
-} from 'chart.js'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip as ChartTooltip } from 'chart.js'
 import ZoneMap from '../components/ZoneMap'
+import FetchModal from '../components/FetchModal'
 import AnimatedCounter from '../components/AnimatedCounter'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { useZoneData, useAllZones } from '../hooks/useZoneData'
-import { ZONES } from '../services/dataService'
+import { useZoneData, useAllZones, useCacheStatus } from '../hooks/useZoneData'
+import { ZONES, removeCustomZone } from '../services/dataService'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip)
 
@@ -43,18 +42,46 @@ function getLabel(status, fhi) {
   return `CRITICAL — Immediate action (FHI ${fhi})`
 }
 
+const MAP_HEIGHT = 440
+
 export default function Dashboard() {
-  const [activeZone, setActiveZone] = useState('corbett-a')
-  const { data: zone, loading }     = useZoneData(activeZone, 60_000)
-  const { zones: allZonesMap }      = useAllZones(60_000)  // for the map overlay
-
-  if (loading || !zone) return <LoadingSpinner message="Loading dashboard…" />
-
-  const color    = statusColors[zone.status]
-  const trend    = generateTrendData(zone.fhi)
-  const delta    = getDelta(zone.signals)
-  const sigs     = zone.signals
+  const navigate = useNavigate()
+  const firstZoneId = Object.keys(ZONES)[0] ?? 'corbett-a'
+  const [activeZone, setActiveZone] = useState(firstZoneId)
+  const [fetchOpen, setFetchOpen]   = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const { data: zone, loading }     = useZoneData(activeZone)
+  const { zones: allZonesMap, refresh } = useAllZones()
+  const { stale, ageMin, meta }     = useCacheStatus()
   const allZones = Object.values(allZonesMap)
+
+  const handleRemoveZone = (id) => {
+    removeCustomZone(id)
+    refresh?.()
+    if (activeZone === id) {
+      const remaining = Object.keys(ZONES).filter(k => k !== id)
+      setActiveZone(remaining[0] ?? firstZoneId)
+    }
+    setDeleteTarget(null)
+  }
+
+  // Auto-open fetch modal when there's no cached data to show
+  if (!loading && !zone && !fetchOpen) {
+    setFetchOpen(true)
+  }
+
+  if (loading || !zone) return (
+    <>
+      <LoadingSpinner message="Loading dashboard…" />
+      <FetchModal open={fetchOpen} onClose={() => setFetchOpen(false)} />
+    </>
+  )
+
+  const color = statusColors[zone.status]
+  const trend = generateTrendData(zone.fhi)
+  const delta = getDelta(zone.signals)
+  const sigs  = zone.signals
+  const activeAlerts = allZones.filter(z => z.status === 'critical' || z.status === 'alert' || z.fire?.count > 5).length
 
   return (
     <>
@@ -63,32 +90,86 @@ export default function Dashboard() {
         <div className="top-bar-left">
           <div className="breadcrumb"><span>Dashboard</span></div>
         </div>
+
         <div className="top-bar-center">
           <div className="zone-tabs">
             {Object.entries(ZONES).map(([id, z]) => (
-              <button
-                key={id}
-                className={`zone-tab ${activeZone === id ? 'active' : ''} ${activeZone === id && zone.status === 'healthy' ? 'healthy' : ''}`}
-                onClick={() => setActiveZone(id)}
-                style={{ transition: 'all 0.2s ease' }}
-              >
-                {z.name}
-              </button>
+              <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                <button
+                  className={`zone-tab ${activeZone === id ? 'active' : ''} ${activeZone === id && zone.status === 'healthy' ? 'healthy' : ''}`}
+                  onClick={() => setActiveZone(id)}
+                >
+                  {z.name}
+                </button>
+                {/* Remove button — all zones */}
+                <button
+                    onClick={() => setDeleteTarget(id)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#DC3545', padding: '2px 4px', display: 'flex', alignItems: 'center',
+                      opacity: 0.6, transition: 'opacity 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 0.6}
+                    title={`Remove ${z.name}`}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+              </div>
             ))}
-            <button className="btn btn-ghost btn-sm"><Plus size={14}/>Add Zone</button>
+            {/* Add Zone — navigates to zones page */}
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => navigate('/zones')}
+            >
+              <Plus size={14} />Add Zone
+            </button>
           </div>
         </div>
+
         <div className="top-bar-right">
-          <span className="sat-info">Last update: {new Date(zone.lastUpdated).toLocaleTimeString()}</span>
-          <div className="notif-bell">
+          {meta && (
+            <button onClick={() => setFetchOpen(true)} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
+              borderRadius: 8, fontSize: 11, cursor: 'pointer',
+              border: stale ? '1.5px solid #D97706' : '1px solid #D4E4D8',
+              background: stale ? 'rgba(217,119,6,0.08)' : '#F8FBF9',
+              color: stale ? '#B45309' : '#6B8872',
+              fontFamily: 'JetBrains Mono, monospace',
+            }}>
+              {stale ? <AlertTriangle size={12} /> : <RefreshCw size={12} />}
+              {stale ? `Stale · ${ageMin}m ago` : ageMin != null ? (ageMin < 1 ? 'just now' : `${ageMin}m ago`) : 'cached'}
+            </button>
+          )}
+          <button onClick={() => setFetchOpen(true)} className="btn btn-primary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <RefreshCw size={13} /> Fetch Now
+          </button>
+          <span className="sat-info">Updated {new Date(zone.lastUpdated).toLocaleTimeString()}</span>
+
+          {/* Bell — navigates to alerts page */}
+          <button
+            onClick={() => navigate('/alerts')}
+            className="notif-bell"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative' }}
+          >
             <Bell size={18} />
-            <span className="bell-badge">{zone.fire.count > 0 ? zone.fire.count : 0}</span>
-          </div>
-          <div className="user-avatar"><User size={16}/></div>
+            {activeAlerts > 0 && (
+              <span className="bell-badge" style={{
+                position: 'absolute', top: -4, right: -4,
+                background: '#DC3545', color: '#fff',
+                fontSize: 9, fontWeight: 700,
+                width: 16, height: 16, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{activeAlerts}</span>
+            )}
+          </button>
+
+          <div className="user-avatar"><User size={16} /></div>
         </div>
       </div>
 
-      {/* ── Data Source Indicators ──────────────────────────────────── */}
+      {/* Data source pills */}
       <div style={{ display: 'flex', gap: 6, padding: '4px 0 8px', flexWrap: 'wrap' }}>
         {Object.entries(zone.dataSource).map(([key, src]) => (
           <span key={key} style={{
@@ -100,26 +181,43 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* ── Main Grid ───────────────────────────────────────────────── */}
-      <div className="two-col col-60-40" style={{ minHeight: 460 }}>
+      {/* Stale banner */}
+      {stale && (
+        <div style={{
+          background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.3)',
+          borderRadius: 10, padding: '10px 16px', marginBottom: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B45309' }}>
+            <AlertTriangle size={14} /> Data is {ageMin} minutes old — refresh for latest readings.
+          </div>
+          <button onClick={() => setFetchOpen(true)} style={{
+            fontSize: 11, fontWeight: 600, color: '#B45309', background: 'none',
+            border: '1px solid #D97706', borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+          }}>Refresh</button>
+        </div>
+      )}
 
-        {/* Left: Real Leaflet Map */}
-        <ZoneMap
-          zones={allZones}
-          selectedZoneId={activeZone}
-          onZoneClick={id => { if (ZONES[id]) setActiveZone(id) }}
-          showDraw={false}
-          showSearch={false}
-          defaultColorMode="ndvi"
-          height={460}
-        />
+      {/* Main Grid */}
+      <div className="two-col col-60-40">
+        <div style={{ height: MAP_HEIGHT, alignSelf: 'flex-start' }}>
+          <ZoneMap
+            zones={allZones}
+            selectedZoneId={activeZone}
+            onZoneClick={id => { if (ZONES[id]) setActiveZone(id) }}
+            showDraw={false}
+            showSearch={false}
+            defaultColorMode="ndvi"
+            height={MAP_HEIGHT}
+          />
+        </div>
 
-        {/* Right Column */}
         <div className="stack" key={activeZone}>
-          {/* FHI Score */}
           <div className="card">
             <div className="card-title">FOREST HEALTH INDEX</div>
-            <div className="mono text-mono-green" style={{ fontSize: 11, letterSpacing: 2, marginBottom: 4 }}>{zone.name.toUpperCase()}</div>
+            <div className="mono text-mono-green" style={{ fontSize: 11, letterSpacing: 2, marginBottom: 4 }}>
+              {zone.name.toUpperCase()}
+            </div>
             <div className="mono" style={{ fontSize: 72, fontWeight: 700, lineHeight: 1, color }}>
               <AnimatedCounter value={zone.fhi} duration={1000} />
             </div>
@@ -130,19 +228,20 @@ export default function Dashboard() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span className={`badge badge-${zone.status}`}>{getLabel(zone.status, zone.fhi)}</span>
-              <span className={delta.dir === 'down' ? 'text-red' : 'text-green'} style={{ fontSize: 12 }}>{delta.text}</span>
+              <span className={delta.dir === 'down' ? 'text-red' : 'text-green'} style={{ fontSize: 12 }}>
+                {delta.text}
+              </span>
             </div>
           </div>
 
-          {/* Signal Breakdown */}
           <div className="card">
             <div className="card-title" style={{ marginBottom: 14 }}>Signal Contributors</div>
             {[
-              { label: 'NDVI Canopy',   val: sigs.ndvi,         color: '#22A95C', source: 'Copernicus' },
-              { label: 'Biodiversity',  val: sigs.biodiversity,  color: '#0EA58C', source: 'GBIF + eBird' },
-              { label: 'Thermal Risk',  val: sigs.thermalRisk,   color: '#DC3545', source: 'NASA FIRMS' },
-              { label: 'Moisture',      val: sigs.moisture,      color: '#3B82F6', source: 'OpenWeather' },
-              { label: 'Cover Health',  val: sigs.coverHealth,   color: '#8B5CF6', source: 'GFW' },
+              { label: 'NDVI Canopy',  val: sigs.ndvi,        color: '#22A95C', source: 'Copernicus' },
+              { label: 'Biodiversity', val: sigs.biodiversity, color: '#0EA58C', source: 'GBIF + eBird' },
+              { label: 'Thermal Risk', val: sigs.thermalRisk,  color: '#DC3545', source: 'NASA FIRMS' },
+              { label: 'Moisture',     val: sigs.moisture,     color: '#3B82F6', source: 'OpenWeather' },
+              { label: 'Cover Health', val: sigs.coverHealth,  color: '#8B5CF6', source: 'GFW' },
             ].map(s => (
               <div className="progress-row" key={s.label}>
                 <span className="progress-label">
@@ -157,30 +256,25 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* 30-Day Trend */}
           <div className="card">
             <div className="card-header">
               <div className="card-title">30-Day Trend</div>
               <span className="text-muted" style={{ fontSize: 11 }}>
-                {new Date(Date.now() - 30*86400000).toLocaleDateString('en-US', {month:'short',day:'numeric'})} — {new Date().toLocaleDateString('en-US', {month:'short',day:'numeric'})}
+                {new Date(Date.now() - 30 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} —{' '}
+                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
             </div>
-            <div className="chart-container" style={{ height: 160 }}>
+            <div className="chart-container" style={{ height: 140 }}>
               <Line
                 data={{
                   labels: trend.labels,
                   datasets: [{
-                    data: trend.data,
-                    borderColor: '#22A95C', borderWidth: 2,
-                    pointRadius: 0, pointHoverRadius: 5,
-                    pointHoverBackgroundColor: '#22A95C', pointHoverBorderColor: '#FFFFFF', pointHoverBorderWidth: 2,
-                    fill: true,
+                    data: trend.data, borderColor: '#22A95C', borderWidth: 2, pointRadius: 0, fill: true,
                     backgroundColor: (ctx) => {
                       const { ctx: c, chartArea } = ctx.chart
                       if (!chartArea) return 'transparent'
                       const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
                       g.addColorStop(0, 'rgba(34,169,92,0.12)')
-                      g.addColorStop(0.6, 'rgba(217,119,6,0.05)')
                       g.addColorStop(1, 'rgba(220,53,69,0.08)')
                       return g
                     },
@@ -191,36 +285,18 @@ export default function Dashboard() {
                   responsive: true, maintainAspectRatio: false,
                   plugins: {
                     legend: { display: false },
-                    tooltip: {
-                      backgroundColor: '#FFFFFF', borderColor: '#E0E8E2', borderWidth: 1,
-                      titleColor: '#1A2E1E', bodyColor: '#1B7A3D',
-                      bodyFont: { family: 'JetBrains Mono' }, padding: 10,
-                      displayColors: false,
-                      callbacks: { label: (ctx) => `FHI: ${ctx.parsed.y.toFixed(1)}` }
-                    }
+                    tooltip: { backgroundColor: '#fff', borderColor: '#E0E8E2', borderWidth: 1, titleColor: '#1A2E1E', bodyColor: '#1B7A3D', bodyFont: { family: 'JetBrains Mono' }, padding: 10, displayColors: false, callbacks: { label: ctx => `FHI: ${ctx.parsed.y.toFixed(1)}` } }
                   },
                   scales: {
-                    x: {
-                      ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 6 },
-                      grid: { color: 'rgba(180,200,185,0.4)' }, border: { color: 'rgba(180,200,185,0.4)' }
-                    },
-                    y: {
-                      min: 0, max: 100,
-                      ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 }, stepSize: 25 },
-                      grid: { color: 'rgba(180,200,185,0.4)' }, border: { color: 'rgba(180,200,185,0.4)' }
-                    }
+                    x: { ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 6 }, grid: { color: 'rgba(180,200,185,0.4)' }, border: { color: 'rgba(180,200,185,0.4)' } },
+                    y: { min: 0, max: 100, ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 }, stepSize: 25 }, grid: { color: 'rgba(180,200,185,0.4)' }, border: { color: 'rgba(180,200,185,0.4)' } }
                   },
                   interaction: { intersect: false, mode: 'index' },
                 }}
               />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              <span style={{ width: 20, height: 0, borderTop: '2px dashed #D97706' }}></span>
-              <span style={{ fontSize: 10, color: '#D97706' }}>Watch Threshold (50)</span>
-            </div>
           </div>
 
-          {/* Quick Stats */}
           <div className="quick-stats">
             <div className="stat-mini-card">
               <div className="stat-mini-value text-amber"><AnimatedCounter value={zone.fire.count} /></div>
@@ -246,47 +322,63 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Alert Ticker ────────────────────────────────────────────── */}
+      {/* Alert Ticker */}
       <div className="alert-ticker">
         {zone.fire.count > 5 && (
           <div className="alert-tick-card critical">
             <div className="alert-tick-header">
-              <div className="alert-tick-severity text-red">
-                <span className="severity-dot bg-red"></span>
-                CRITICAL — {zone.name}
-              </div>
+              <div className="alert-tick-severity text-red"><span className="severity-dot bg-red" />CRITICAL — {zone.name}</div>
               <span className="alert-tick-time">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} IST</span>
             </div>
-            <div className="alert-tick-msg">FHI: {zone.fhi} — {zone.fire.count} thermal anomalies detected by NASA FIRMS</div>
-            <button className="btn btn-ghost-red btn-sm">DISPATCH RANGER</button>
+            <div className="alert-tick-msg">FHI: {zone.fhi} — {zone.fire.count} thermal anomalies detected</div>
+            <button className="btn btn-ghost-red btn-sm" onClick={() => navigate('/alerts')}>VIEW ALERTS</button>
           </div>
         )}
         {zone.status === 'watch' && (
           <div className="alert-tick-card watch">
             <div className="alert-tick-header">
-              <div className="alert-tick-severity text-amber">
-                <span className="severity-dot bg-amber"></span>
-                WATCH — {zone.name}
-              </div>
+              <div className="alert-tick-severity text-amber"><span className="severity-dot bg-amber" />WATCH — {zone.name}</div>
               <span className="alert-tick-time">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} IST</span>
             </div>
-            <div className="alert-tick-msg">FHI: {zone.fhi} — Biodiversity score: {sigs.biodiversity}%, Moisture: {sigs.moisture}%</div>
-            <button className="btn btn-ghost-amber btn-sm">VIEW DETAILS</button>
+            <div className="alert-tick-msg">FHI: {zone.fhi} — Bio: {sigs.biodiversity}%, Moisture: {sigs.moisture}%</div>
+            <button className="btn btn-ghost-amber btn-sm" onClick={() => navigate('/alerts')}>VIEW DETAILS</button>
           </div>
         )}
         {zone.status === 'healthy' && (
           <div className="alert-tick-card healthy">
             <div className="alert-tick-header">
-              <div className="alert-tick-severity text-green">
-                <span className="severity-dot bg-green"></span>
-                HEALTHY — {zone.name}
-              </div>
+              <div className="alert-tick-severity text-green"><span className="severity-dot bg-green" />HEALTHY — {zone.name}</div>
               <span className="alert-tick-time">{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} IST</span>
             </div>
             <div className="alert-tick-msg">FHI: {zone.fhi} — All signals stable</div>
           </div>
         )}
       </div>
+
+      {/* Delete zone modal */}
+      {deleteTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9000,
+          background: 'rgba(26,46,30,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 360, width: '90%', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Remove zone?</div>
+            <div style={{ fontSize: 13, color: '#6B8872', marginBottom: 20, lineHeight: 1.6 }}>
+              <strong>{ZONES[deleteTarget]?.name}</strong> will be removed from monitoring.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="btn btn-sm" onClick={() => handleRemoveZone(deleteTarget)}
+                style={{ background: '#DC3545', color: '#fff', border: 'none' }}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <FetchModal open={fetchOpen} onClose={() => setFetchOpen(false)} />
     </>
   )
 }

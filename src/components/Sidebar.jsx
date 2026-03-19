@@ -8,6 +8,7 @@ const navItems = [
   { to: '/alerts', icon: Bell, label: 'Alerts', badge: 3 },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
   { to: '/edge-nodes', icon: Cpu, label: 'Edge Nodes' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
 export default function Sidebar() {
@@ -47,10 +48,6 @@ export default function Sidebar() {
             </NavLink>
           )
         })}
-        <div className="nav-item" style={{ opacity: 0.5, cursor: 'default' }}>
-          <Settings size={18} />
-          <span>Settings</span>
-        </div>
       </nav>
 
       <div className="sidebar-footer">

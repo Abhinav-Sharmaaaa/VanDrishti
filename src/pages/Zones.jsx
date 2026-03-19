@@ -65,6 +65,8 @@ export default function Zones() {
 
   const handleZoneDeleted = (id) => {
     removeCustomZone(id)
+    removeZoneFromCache(id)
+    notifyCacheUpdated()
     setPending(prev => prev.filter(z => z.id !== id))
     if (selectedId === id) setSelectedId(null)
     setDelete(null)
@@ -203,11 +205,9 @@ export default function Zones() {
                       View Details →
                     </Link>
                   )}
-                  {selected.custom && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setDelete(selected.id)} style={{ color: '#DC3545' }}>
-                      <Trash2 size={13}/>
-                    </button>
-                  )}
+                  <button className="btn btn-ghost btn-sm" onClick={() => setDelete(selected.id)} style={{ color: '#DC3545' }}>
+                    <Trash2 size={13}/>
+                  </button>
                 </div>
                 {selected.custom && (
                   <div style={{ fontSize: 9, color: '#9DB8A2', marginTop: 8, fontFamily: 'var(--font-mono)', textAlign: 'center' }}>
@@ -295,7 +295,7 @@ export default function Zones() {
               <div className="zone-card-footer">
                 <span className="updated">Updated {new Date(zone.lastUpdated).toLocaleTimeString()}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  {zone.custom && <button className="btn btn-ghost btn-sm" onClick={() => setDelete(zone.id)} style={{ color: '#DC3545' }}><Trash2 size={12}/></button>}
+                  <button className="btn btn-ghost btn-sm" onClick={() => setDelete(zone.id)} style={{ color: '#DC3545' }}><Trash2 size={12}/></button>
                   {zone.fhi != null && <Link to={`/zones/${zone.id}`} className="btn btn-ghost btn-sm">View →</Link>}
                 </div>
               </div>

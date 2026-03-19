@@ -42,7 +42,8 @@ const BUILTIN_ZONES = {
 // ---------------------------------------------------------------------------
 // Custom zone persistence
 // ---------------------------------------------------------------------------
-const STORAGE_KEY = 'vandrishti_custom_zones'
+const STORAGE_KEY  = 'vandrishti_custom_zones'
+const DELETED_KEY  = 'vandrishti_deleted_zones'  // persists deleted built-in IDs
 
 function loadCustomZones() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
@@ -52,8 +53,20 @@ function saveCustomZones(zones) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(zones)) } catch {}
 }
 
-/** Mutable registry — built-in + custom zones loaded at startup */
-export const ZONES = { ...BUILTIN_ZONES, ...loadCustomZones() }
+function loadDeletedZoneIds() {
+  try { return new Set(JSON.parse(localStorage.getItem(DELETED_KEY) || '[]')) } catch { return new Set() }
+}
+
+function saveDeletedZoneIds(set) {
+  try { localStorage.setItem(DELETED_KEY, JSON.stringify([...set])) } catch {}
+}
+
+/** Mutable registry — built-in (minus deleted) + custom zones loaded at startup */
+const _deleted = loadDeletedZoneIds()
+const _filteredBuiltins = Object.fromEntries(
+  Object.entries(BUILTIN_ZONES).filter(([id]) => !_deleted.has(id))
+)
+export const ZONES = { ..._filteredBuiltins, ...loadCustomZones() }
 
 /**
  * Add a custom zone drawn on the map. Persists to localStorage.
@@ -68,13 +81,30 @@ export function addCustomZone(meta) {
 }
 
 /**
- * Delete a custom zone. Removes from localStorage and live registry.
+ * Delete any zone (built-in or custom). Persists the deletion so it
+ * survives a page refresh.
  */
 export function removeCustomZone(id) {
   delete ZONES[id]
+  // Remove from custom zones list (no-op if it was a built-in)
   const custom = loadCustomZones()
   delete custom[id]
   saveCustomZones(custom)
+  // If it was a built-in, record its ID so it stays hidden after reload
+  if (id in BUILTIN_ZONES) {
+    const deleted = loadDeletedZoneIds()
+    deleted.add(id)
+    saveDeletedZoneIds(deleted)
+  }
+  // Remove from the data cache so useAllZones re-renders immediately
+  try {
+    const raw = localStorage.getItem('vandrishti_zone_cache')
+    if (raw) {
+      const cache = JSON.parse(raw)
+      delete cache[id]
+      localStorage.setItem('vandrishti_zone_cache', JSON.stringify(cache))
+    }
+  } catch {}
 }
 
 // ---------------------------------------------------------------------------
