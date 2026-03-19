@@ -3,18 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getCachedZones, getCacheMeta, isCacheStale, cacheAgeMinutes } from '../services/dataCache'
 
-
-
-
-
 const CACHE_EVENT = 'vandrishti:cache-updated'
 
 export function notifyCacheUpdated() {
   window.dispatchEvent(new CustomEvent(CACHE_EVENT))
 }
-
-
-
 
 export function useAllZones() {
   const [zones, setZones]   = useState(() => getCachedZones() ?? {})
