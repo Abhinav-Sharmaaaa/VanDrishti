@@ -12,6 +12,7 @@ import Profile from './pages/Profile'
 import FetchModal from './components/FetchModal'
 import SplashScreen from './components/SplashScreen'
 import { isCacheStale, getSettings } from './services/dataCache'
+import ChatWidget from './components/ChatWidget'
 
 export default function App() {
   const [fetchModalOpen, setFetchModalOpen] = useState(false)
@@ -31,26 +32,29 @@ export default function App() {
       {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       <div className="app-layout">
         <Sidebar />
-      <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/zones" element={<Zones />} />
-          <Route path="/zones/:zoneId" element={<ZoneDetail />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/edge-nodes" element={<EdgeNodes />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/profile" element={<Profile />} />
-        </Routes>
-      </main>
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/zones" element={<Zones />} />
+            <Route path="/zones/:zoneId" element={<ZoneDetail />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/edge-nodes" element={<EdgeNodes />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
+          </Routes>
+        </main>
 
-      <FetchModal
-        open={fetchModalOpen}
-        onClose={() => setFetchModalOpen(false)}
-        autoFetch={autoFetch}
-      />
-    </div>
+        <FetchModal
+          open={fetchModalOpen}
+          onClose={() => setFetchModalOpen(false)}
+          autoFetch={autoFetch}
+        />
+      </div>
+
+      {/* Floating AI assistant — renders above everything, on every page */}
+      <ChatWidget />
     </>
   )
 }
