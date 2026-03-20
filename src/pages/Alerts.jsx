@@ -127,7 +127,7 @@ function classifyProblems(zone) {
     problems.push({
       type: 'moisture_stress',
       label: 'Moisture Stress / Drought Risk',
-      description: `Moisture index at ${zone.signals.moisture}%. Humidity: ${zone.weather.humidity}%. Rainfall: ${zone.weather.rainfall}mm. Prolonged deficit risk.`,
+      description: `Moisture index at ${zone.signals.moisture}%. Prolonged moisture deficit risk.`,
       severity: 'watch',
       teams: [GOVT_TEAMS.irrigation, GOVT_TEAMS.rfo],
       icon: Droplets,
