@@ -224,11 +224,11 @@ function Bubble({ role, content, streaming }) {
       <div style={{
         maxWidth: '82%', padding: isUser ? '8px 13px' : '9px 13px',
         borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-        background: isUser ? 'linear-gradient(135deg,#22A95C,#1A7A3E)' : 'var(--bg-elevated,#F3F7F4)',
-        color: isUser ? '#fff' : 'var(--text-primary,#1A2E1E)',
+        background: isUser ? 'linear-gradient(135deg,#22A95C,#1A7A3E)' : 'var(--bg-surface2)',
+        color: isUser ? '#fff' : 'var(--text-primary)',
         fontSize: 12.5, lineHeight: 1.5,
         boxShadow: isUser ? '0 2px 8px rgba(34,169,92,0.22)' : '0 1px 4px rgba(0,0,0,0.06)',
-        border: isUser ? 'none' : '1px solid var(--border,#DDE8DF)',
+        border: isUser ? 'none' : '1px solid var(--border)',
         fontFamily: 'var(--font-body,system-ui)',
       }}>
         {isUser ? content : renderMarkdown(content)}
@@ -321,7 +321,7 @@ export default function ChatWidget() {
         .van-panel  { animation: vanUp 0.22s cubic-bezier(0.22,1,0.36,1) }
         .van-scroll::-webkit-scrollbar { width:4px }
         .van-scroll::-webkit-scrollbar-thumb { background:rgba(34,169,92,0.2);border-radius:4px }
-        .van-sugg:hover { background:rgba(34,169,92,0.1) !important; border-color:rgba(34,169,92,0.35) !important; color:#1A5C35 !important }
+        .van-sugg:hover { background:rgba(34,169,92,0.1) !important; border-color:rgba(34,169,92,0.35) !important; color:var(--green) !important }
         .van-input:focus { outline:none; border-color:#22A95C !important; box-shadow:0 0 0 3px rgba(34,169,92,0.1) !important }
       `}</style>
 
@@ -348,8 +348,8 @@ export default function ChatWidget() {
         <div className="van-panel" style={{
           position:'fixed', bottom:86, right:24, zIndex:9989,
           width:360, height:520, borderRadius:20,
-          background:'var(--bg-card,#fff)',
-          border:'1px solid var(--border,#DDE8DF)',
+          background:'var(--bg-card)',
+          border:'1px solid var(--border)',
           boxShadow:'0 12px 48px rgba(0,0,0,0.13)',
           display:'flex', flexDirection:'column', overflow:'hidden',
           fontFamily:'var(--font-body,system-ui)',
@@ -397,22 +397,22 @@ export default function ChatWidget() {
                   <div style={{ width:46, height:46, borderRadius:13, margin:'0 auto 9px', background:'linear-gradient(135deg,#2ECC71,#1A7A3E)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(34,169,92,0.28)' }}>
                     <Leaf size={21} color="#fff"/>
                   </div>
-                  <div style={{ fontWeight:700, fontSize:13.5, color:'var(--text-primary,#1A2E1E)', marginBottom:4 }}>Forest Intelligence Assistant</div>
-                  <div style={{ fontSize:11.5, color:'var(--text-secondary,#4A6B52)', lineHeight:1.5 }}>
+                  <div style={{ fontWeight:700, fontSize:13.5, color:'var(--text-primary)', marginBottom:4 }}>Forest Intelligence Assistant</div>
+                  <div style={{ fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.5 }}>
                     Ask about zone health, alerts, fire risk, biodiversity, or how to use VanDrishti.
                   </div>
-                  <div style={{ marginTop:6, fontSize:10, color:'var(--text-muted,#8B9E8F)', fontFamily:'var(--font-mono,monospace)' }}>
+                  <div style={{ marginTop:6, fontSize:10, color:'var(--text-muted)', fontFamily:'var(--font-mono,monospace)' }}>
                     Powered by Llama 3.3 70B via Groq · Free
                   </div>
                 </div>
                 {showSugg && (
                   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    <div style={{ fontSize:9.5, color:'var(--text-secondary,#6B8F72)', fontFamily:'var(--font-mono,monospace)', fontWeight:600, marginBottom:1, letterSpacing:.04 }}>SUGGESTED</div>
+                    <div style={{ fontSize:9.5, color:'var(--text-secondary)', fontFamily:'var(--font-mono,monospace)', fontWeight:600, marginBottom:1, letterSpacing:.04 }}>SUGGESTED</div>
                     {SUGGESTIONS.map((s, i) => (
                       <button key={i} className="van-sugg" onClick={() => send(s)} style={{
-                        textAlign:'left', background:'var(--bg-elevated,#F3F7F4)',
-                        border:'1px solid var(--border,#DDE8DF)', borderRadius:10,
-                        padding:'7px 11px', fontSize:11.5, color:'var(--text-primary,#1A2E1E)',
+                        textAlign:'left', background:'var(--bg-surface2)',
+                        border:'1px solid var(--border)', borderRadius:10,
+                        padding:'7px 11px', fontSize:11.5, color:'var(--text-primary)',
                         cursor:'pointer', fontFamily:'inherit', transition:'all 0.14s',
                         animation:`vanIn 0.22s ease ${i*40}ms both`,
                       }}>{s}</button>
@@ -429,7 +429,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div style={{ padding:'9px 11px 11px', borderTop:'1px solid var(--border,#DDE8DF)', background:'var(--bg-surface,#F8FAF8)', flexShrink:0 }}>
+          <div style={{ padding:'9px 11px 11px', borderTop:'1px solid var(--border)', background:'var(--bg-surface)', flexShrink:0 }}>
             <div style={{ display:'flex', gap:7, alignItems:'flex-end' }}>
               <textarea
                 ref={inputRef}
@@ -440,12 +440,12 @@ export default function ChatWidget() {
                 onInput={e => { e.target.style.height='auto'; e.target.style.height = Math.min(e.target.scrollHeight, 88) + 'px' }}
                 placeholder="Ask about zones, alerts, ecology…"
                 rows={1} disabled={streaming || noKey}
-                style={{ flex:1, resize:'none', border:'1.5px solid var(--border,#DDE8DF)', borderRadius:11, padding:'8px 11px', fontSize:12.5, fontFamily:'inherit', background:'var(--bg-card,#fff)', color:'var(--text-primary,#1A2E1E)', lineHeight:1.5, maxHeight:88, overflowY:'auto', transition:'border-color 0.18s, box-shadow 0.18s' }}
+                style={{ flex:1, resize:'none', border:'1.5px solid var(--border)', borderRadius:11, padding:'8px 11px', fontSize:12.5, fontFamily:'inherit', background:'var(--bg-card)', color:'var(--text-primary)', lineHeight:1.5, maxHeight:88, overflowY:'auto', transition:'border-color 0.18s, box-shadow 0.18s' }}
               />
               <button onClick={() => send()} disabled={!input.trim() || streaming || noKey} style={{
                 width:36, height:36, borderRadius:10, border:'none', flexShrink:0,
-                background: input.trim() && !streaming && !noKey ? '#22A95C' : 'var(--bg-elevated,#E8F1EA)',
-                color:      input.trim() && !streaming && !noKey ? '#fff' : 'var(--text-secondary,#6B8F72)',
+                background: input.trim() && !streaming && !noKey ? '#22A95C' : 'var(--bg-surface2)',
+                color:      input.trim() && !streaming && !noKey ? '#fff' : 'var(--text-secondary)',
                 cursor:     input.trim() && !streaming && !noKey ? 'pointer' : 'not-allowed',
                 display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.16s',
               }}>
@@ -454,7 +454,7 @@ export default function ChatWidget() {
                   : <Send size={14}/>}
               </button>
             </div>
-            <div style={{ fontSize:9.5, color:'var(--text-muted,#8B9E8F)', marginTop:5, textAlign:'center', fontFamily:'var(--font-mono,monospace)' }}>
+            <div style={{ fontSize:9.5, color:'var(--text-muted)', marginTop:5, textAlign:'center', fontFamily:'var(--font-mono,monospace)' }}>
               Enter to send · Shift+Enter for newline
             </div>
           </div>

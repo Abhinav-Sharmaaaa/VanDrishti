@@ -254,7 +254,7 @@ export default function Dashboard() {
               { label: 'NDVI Canopy',  val: sigs.ndvi,        color: '#22A95C', source: 'Copernicus' },
               { label: 'Estimated Biodiversity', val: sigs.biodiversity, color: '#0EA58C', source: 'GBIF + eBird' },
               { label: 'Thermal Risk', val: sigs.thermalRisk,  color: '#DC3545', source: 'NASA FIRMS' },
-              { label: 'Moisture',     val: sigs.moisture,     color: '#3B82F6', source: 'OpenWeather' },
+              { label: 'Moisture',     val: sigs.moisture,     color: '#3B82F6', source: 'Openmeteo' },
               { label: 'Cover Health', val: sigs.coverHealth,  color: '#8B5CF6', source: 'GFW' },
             ].map(s => (
               <div className="progress-row" key={s.label}>
