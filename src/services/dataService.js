@@ -205,23 +205,6 @@ function computeFHI({ ndvi, fireCount, speciesScore, birdScore, moistureScore, c
 // ---------------------------------------------------------------------------
 // Carbon stock estimation — IPCC / Avitabile et al. methodology
 // ---------------------------------------------------------------------------
-// Validated against published values:
-//   Corbett NP (sal/mixed):    ~5 Mt CO₂e  ✓
-//   Corbett-B (buffer zone):   ~16 Mt CO₂e ✓
-//   Sundarbans-A (mangrove):   ~20 Mt CO₂e (bbox slightly large, within range)
-//   Sundarbans-B (degraded):   ~0.4 Mt CO₂e ✓
-//
-// Method:
-//   forested_ha  = bbox_ha × ndvi_fraction   (NDVI as forest cover proxy)
-//   agb_per_ha   = 180 × ndvi_fraction        (t/ha, conservative for S. Asian forest)
-//   carbonStock  = agb_per_ha × 0.47 × 3.67 × coverFactor × forested_ha
-//     0.47 = IPCC carbon fraction of dry biomass
-//     3.67 = C → CO₂e molecular weight ratio (44/12)
-//
-// Returns: tCO₂e  — divide by 1,000,000 for Mt CO₂e display
-//
-// Sources: Avitabile et al. (2016), IPCC 2006 Guidelines Vol.4 Ch.4
-// ---------------------------------------------------------------------------
 const MAX_AGB_T_PER_HA = 180
 
 function estimateCarbonStock(ndvi, coverLossPct, bbox) {
@@ -230,12 +213,10 @@ function estimateCarbonStock(ndvi, coverLossPct, bbox) {
   const lonDiff = bbox.maxLon - bbox.minLon
   const areaKm2 = latDiff * 111 * (lonDiff * 111 * Math.cos(latMid * Math.PI / 180))
   const areaHa  = areaKm2 * 100
-
   const ndviFrac   = Math.max(0.05, Math.min(1.0, ndvi / 100))
   const forestedHa = areaHa * ndviFrac
   const agbPerHa   = MAX_AGB_T_PER_HA * ndviFrac
   const coverFactor= Math.max(0.05, coverLossPct / 100)
-
   return Math.round(agbPerHa * 0.47 * 3.67 * coverFactor * forestedHa)
 }
 
@@ -279,7 +260,41 @@ export async function fetchZoneData(zoneId) {
   const gfw         = gfwR.value           ?? mock.treeCoverLoss
   const placeName   = placeR.value?.display_name?.split(',').slice(0, 2).join(',') ?? mock.placeName
 
-  const speciesScore = Math.min(100, Math.round((speciesCnt / 150) * 60 + birdScore * 0.4))
+  // ── Biodiversity score: three-source fusion ─────────────────────────────────
+  // Source 1 — eBird (real-time, last 7 days) — weight 50%
+  //   Primary signal. Fast-updating, reflects current habitat accessibility.
+  //   Penalised internally when observation count is very low (spatial bias flag).
+  const ebirdComponent = ebirdR.value?.score ?? Math.min(100, Math.round((mock.birdScore / 100) * 100))
+
+  // Source 2 — GBIF (historical, last 2 years) — weight 30%
+  //   Background signal. Smooths seasonal variation, captures less-observed taxa.
+  //   Uses historicalScore if available (new gbif.js), falls back to count-based.
+  const gbifRaw = gbifR.value?.historicalScore
+    ?? Math.min(100, Math.round((speciesCnt / 400) * 100))
+  const gbifComponent = gbifRaw
+
+  // Source 3 — NDVI correction — weight 20%
+  //   Ground-truth reality check. High NDVI but low eBird/GBIF = spatial bias
+  //   (dense forest with no human access → underreported). Corrects upward.
+  //   Low NDVI but high species count = likely data artifact. Corrects downward.
+  const ndviExpected  = Math.min(100, Math.round(ndvi * 1.1))   // what we'd expect given vegetation
+  const rawObserved   = Math.round(ebirdComponent * 0.6 + gbifComponent * 0.4)
+  const ndviCorrection = Math.round(
+    rawObserved + (ndviExpected - rawObserved) * 0.3   // pull 30% toward NDVI expectation
+  )
+
+  // Spatial bias detection: if eBird has very few observations in a dense forest,
+  // upweight NDVI correction (inaccessible forest = underreported, not actually poor)
+  const spatialBias    = ebirdR.value?.spatialBiasFlag && ndvi > 60
+  const ndviWeight     = spatialBias ? 0.35 : 0.20
+  const ebirdWeight    = spatialBias ? 0.40 : 0.50
+  const gbifWeight     = spatialBias ? 0.25 : 0.30
+
+  const speciesScore = Math.min(100, Math.max(0, Math.round(
+    ebirdComponent  * ebirdWeight +
+    gbifComponent   * gbifWeight  +
+    ndviCorrection  * ndviWeight
+  )))
   const fhi          = computeFHI({ ndvi, fireCount, speciesScore, birdScore, moistureScore: weather.moistureScore, coverLossPct: gfw.coverLossPct })
   const status       = getStatus(fhi)
 
@@ -303,11 +318,10 @@ export async function fetchZoneData(zoneId) {
     dataSource: {
       ndvi:      ndviR.value    != null ? 'Copernicus'     : 'mock',
       fire:      fireR.value    != null ? 'NASA FIRMS'     : 'mock',
-      species:   gbifR.value    != null ? 'GBIF'           : 'mock',
-      birds:     ebirdR.value   != null ? 'eBird'          : 'mock',
+      species:   gbifR.value    != null ? 'GBIF (2yr)'      : 'mock',
+      birds:     ebirdR.value   != null ? 'eBird (7d)'     : 'mock',
       weather:   weatherR.value != null ? 'Open-Meteo'     : 'mock',
       treeCover: gfwR.value     != null ? 'Copernicus Land': 'mock',
-      carbon:    'IPCC/Copernicus (calculated)',
     },
   }
 }
