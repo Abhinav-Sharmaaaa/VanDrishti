@@ -1,6 +1,8 @@
 import { useRef, useEffect } from 'react'
+import { useTheme } from '../ThemeContext'
 
 export default function ZoneDetailMap({ zone, height }) {
+  const { theme } = useTheme()
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -16,7 +18,7 @@ export default function ZoneDetailMap({ zone, height }) {
     const h = rect.height
 
     // Light surrounding area
-    ctx.fillStyle = '#D4DDD7'
+    ctx.fillStyle = theme === 'dark' ? '#18181b' : '#D4DDD7'
     ctx.fillRect(0, 0, w, h)
 
     // Polygon for the zone
@@ -40,7 +42,7 @@ export default function ZoneDetailMap({ zone, height }) {
     ctx.clip()
 
     // Base fill
-    ctx.fillStyle = '#C8E6CF'
+    ctx.fillStyle = theme === 'dark' ? '#27272a' : '#C8E6CF'
     ctx.fillRect(0, 0, w, h)
 
     // NDVI heatmap inside zone
@@ -119,7 +121,7 @@ export default function ZoneDetailMap({ zone, height }) {
     ctx.fillText('N', 0, -16)
     ctx.restore()
 
-  }, [zone])
+  }, [zone, theme])
 
   return (
     <canvas

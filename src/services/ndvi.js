@@ -1,14 +1,4 @@
-/**
- * Copernicus Sentinel Hub / ESA — NDVI (Normalized Difference Vegetation Index)
- * API Docs: https://docs.sentinel-hub.com/api/latest/reference/#operation/getStatistics
- *
- * Environment variables required:
- *   VITE_COPERNICUS_CLIENT_ID
- *   VITE_COPERNICUS_CLIENT_SECRET
- *
- * IMPORTANT: The Statistical API takes evalscript as PLAIN TEXT, not base64.
- * Base64 encoding is only used by the Process API (/api/v1/process).
- */
+
 
 // Vite proxy: /sentinel/* → https://services.sentinel-hub.com/*
 const BASE_URL = import.meta.env.DEV

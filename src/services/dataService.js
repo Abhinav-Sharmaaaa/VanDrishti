@@ -1,10 +1,3 @@
-/**
- * Central Data Service — VanDrishti
- *
- * Custom zones drawn on the map are persisted to localStorage and merged
- * with built-in zone definitions at startup.
- */
-
 import { fetchNDVI } from './ndvi'
 import { fetchFireEvents } from './firms'
 import { fetchSpeciesCount } from './gbif'
@@ -39,9 +32,6 @@ const BUILTIN_ZONES = {
   },
 }
 
-// ---------------------------------------------------------------------------
-// Custom zone persistence
-// ---------------------------------------------------------------------------
 const STORAGE_KEY  = 'vandrishti_custom_zones'
 const DELETED_KEY  = 'vandrishti_deleted_zones'  // persists deleted built-in IDs
 
@@ -110,28 +100,72 @@ export function removeCustomZone(id) {
 // ---------------------------------------------------------------------------
 // Mock data (built-in zones)
 // ---------------------------------------------------------------------------
+// Build a realistic 5-day mock forecast from base conditions
+function mockForecast(baseTemp, baseHumidity, conditions) {
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i + 1)
+    const v = (i % 3 - 1) * 2   // small daily variation
+    return {
+      date:     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      tempMax:  baseTemp + Math.abs(v) + 2,
+      tempMin:  baseTemp - Math.abs(v) - 1,
+      humidity: Math.min(100, Math.max(20, baseHumidity + (i % 2 === 0 ? 5 : -5))),
+      rain:     i === 2 ? 2.5 : 0,
+      condition: conditions[i % conditions.length],
+    }
+  })
+}
+
 const MOCK_DATA = {
   'corbett-a': {
     ndvi: 68, fireCount: 7, speciesCount: 89, birdScore: 54, birdSpecies: 62,
-    weather: { temp: 31, humidity: 58, rainfall: 0, windSpeed: 3.2, condition: 'Haze', moistureScore: 42, forecast: [] },
+    weather: {
+      temp: 31, humidity: 58, rainfall: 0, windSpeed: 3.2,
+      condition: 'Foggy', description: 'haze', feelsLike: 33,
+      pressure: 1008, visibility: 4, cloudCover: 55,
+      sunrise: '06:12 AM', sunset: '06:48 PM',
+      moistureScore: 42,
+      forecast: mockForecast(31, 58, ['Foggy', 'Clear', 'Partly Cloudy', 'Clear', 'Foggy']),
+    },
     treeCoverLoss: { totalLossHa: 3200, coverLossPct: 36, yearlyLoss: [] },
     placeName: 'Jim Corbett National Park, Uttarakhand', carbonStock: 2847,
   },
   'corbett-b': {
     ndvi: 82, fireCount: 1, speciesCount: 134, birdScore: 72, birdSpecies: 98,
-    weather: { temp: 28, humidity: 77, rainfall: 2.4, windSpeed: 2.1, condition: 'Partly Cloudy', moistureScore: 75, forecast: [] },
+    weather: {
+      temp: 28, humidity: 77, rainfall: 2.4, windSpeed: 2.1,
+      condition: 'Partly Cloudy', description: 'partly cloudy', feelsLike: 30,
+      pressure: 1012, visibility: 9, cloudCover: 40,
+      sunrise: '06:10 AM', sunset: '06:50 PM',
+      moistureScore: 75,
+      forecast: mockForecast(28, 77, ['Partly Cloudy', 'Rain', 'Partly Cloudy', 'Clear', 'Partly Cloudy']),
+    },
     treeCoverLoss: { totalLossHa: 580, coverLossPct: 88, yearlyLoss: [] },
     placeName: 'Jim Corbett Buffer Zone, Uttarakhand', carbonStock: 4102,
   },
   'sundarbans-a': {
     ndvi: 74, fireCount: 4, speciesCount: 112, birdScore: 63, birdSpecies: 85,
-    weather: { temp: 32, humidity: 82, rainfall: 1.1, windSpeed: 4.7, condition: 'Humid', moistureScore: 62, forecast: [] },
+    weather: {
+      temp: 32, humidity: 82, rainfall: 1.1, windSpeed: 4.7,
+      condition: 'Rain', description: 'light rain', feelsLike: 36,
+      pressure: 1005, visibility: 7, cloudCover: 75,
+      sunrise: '05:30 AM', sunset: '05:55 PM',
+      moistureScore: 62,
+      forecast: mockForecast(32, 82, ['Rain', 'Clouds', 'Rain', 'Thunderstorm', 'Clouds']),
+    },
     treeCoverLoss: { totalLossHa: 1800, coverLossPct: 64, yearlyLoss: [] },
     placeName: 'Sundarbans Tiger Reserve, West Bengal', carbonStock: 3891,
   },
   'sundarbans-b': {
     ndvi: 35, fireCount: 12, speciesCount: 41, birdScore: 29, birdSpecies: 34,
-    weather: { temp: 35, humidity: 68, rainfall: 0, windSpeed: 5.8, condition: 'Hot & Dry', moistureScore: 25, forecast: [] },
+    weather: {
+      temp: 35, humidity: 68, rainfall: 0, windSpeed: 5.8,
+      condition: 'Clear', description: 'clear sky', feelsLike: 38,
+      pressure: 1002, visibility: 12, cloudCover: 10,
+      sunrise: '05:28 AM', sunset: '05:52 PM',
+      moistureScore: 25,
+      forecast: mockForecast(35, 68, ['Clear', 'Haze', 'Clear', 'Clear', 'Clouds']),
+    },
     treeCoverLoss: { totalLossHa: 6200, coverLossPct: 8, yearlyLoss: [] },
     placeName: 'Sundarbans South, West Bengal', carbonStock: 589,
   },
@@ -141,7 +175,14 @@ const MOCK_DATA = {
 function customMock(meta) {
   return {
     ndvi: 60, fireCount: 2, speciesCount: 80, birdScore: 50, birdSpecies: 55,
-    weather: { temp: 28, humidity: 65, rainfall: 0.5, windSpeed: 3.0, condition: 'Clear', moistureScore: 55, forecast: [] },
+    weather: {
+      temp: 28, humidity: 65, rainfall: 0.5, windSpeed: 3.0,
+      condition: 'Clear', description: 'clear sky', feelsLike: 29,
+      pressure: 1010, visibility: 10, cloudCover: 20,
+      sunrise: '06:00 AM', sunset: '06:30 PM',
+      moistureScore: 55,
+      forecast: mockForecast(28, 65, ['Clear', 'Clouds', 'Clear', 'Rain', 'Clear']),
+    },
     treeCoverLoss: { totalLossHa: 1000, coverLossPct: 70, yearlyLoss: [] },
     placeName: meta.name, carbonStock: 2000,
   }
@@ -159,6 +200,24 @@ function computeFHI({ ndvi, fireCount, speciesScore, birdScore, moistureScore, c
     Math.min(100, moistureScore)           * 0.15 +
     Math.min(100, coverLossPct)            * 0.10
   )))
+}
+
+// ---------------------------------------------------------------------------
+// Carbon stock estimation — IPCC / Avitabile et al. methodology
+// ---------------------------------------------------------------------------
+const MAX_AGB_T_PER_HA = 180
+
+function estimateCarbonStock(ndvi, coverLossPct, bbox) {
+  const latMid  = (bbox.minLat + bbox.maxLat) / 2
+  const latDiff = bbox.maxLat - bbox.minLat
+  const lonDiff = bbox.maxLon - bbox.minLon
+  const areaKm2 = latDiff * 111 * (lonDiff * 111 * Math.cos(latMid * Math.PI / 180))
+  const areaHa  = areaKm2 * 100
+  const ndviFrac   = Math.max(0.05, Math.min(1.0, ndvi / 100))
+  const forestedHa = areaHa * ndviFrac
+  const agbPerHa   = MAX_AGB_T_PER_HA * ndviFrac
+  const coverFactor= Math.max(0.05, coverLossPct / 100)
+  return Math.round(agbPerHa * 0.47 * 3.67 * coverFactor * forestedHa)
 }
 
 function getStatus(fhi) {
@@ -201,7 +260,41 @@ export async function fetchZoneData(zoneId) {
   const gfw         = gfwR.value           ?? mock.treeCoverLoss
   const placeName   = placeR.value?.display_name?.split(',').slice(0, 2).join(',') ?? mock.placeName
 
-  const speciesScore = Math.min(100, Math.round((speciesCnt / 150) * 60 + birdScore * 0.4))
+  // ── Biodiversity score: three-source fusion ─────────────────────────────────
+  // Source 1 — eBird (real-time, last 7 days) — weight 50%
+  //   Primary signal. Fast-updating, reflects current habitat accessibility.
+  //   Penalised internally when observation count is very low (spatial bias flag).
+  const ebirdComponent = ebirdR.value?.score ?? Math.min(100, Math.round((mock.birdScore / 100) * 100))
+
+  // Source 2 — GBIF (historical, last 2 years) — weight 30%
+  //   Background signal. Smooths seasonal variation, captures less-observed taxa.
+  //   Uses historicalScore if available (new gbif.js), falls back to count-based.
+  const gbifRaw = gbifR.value?.historicalScore
+    ?? Math.min(100, Math.round((speciesCnt / 400) * 100))
+  const gbifComponent = gbifRaw
+
+  // Source 3 — NDVI correction — weight 20%
+  //   Ground-truth reality check. High NDVI but low eBird/GBIF = spatial bias
+  //   (dense forest with no human access → underreported). Corrects upward.
+  //   Low NDVI but high species count = likely data artifact. Corrects downward.
+  const ndviExpected  = Math.min(100, Math.round(ndvi * 1.1))   // what we'd expect given vegetation
+  const rawObserved   = Math.round(ebirdComponent * 0.6 + gbifComponent * 0.4)
+  const ndviCorrection = Math.round(
+    rawObserved + (ndviExpected - rawObserved) * 0.3   // pull 30% toward NDVI expectation
+  )
+
+  // Spatial bias detection: if eBird has very few observations in a dense forest,
+  // upweight NDVI correction (inaccessible forest = underreported, not actually poor)
+  const spatialBias    = ebirdR.value?.spatialBiasFlag && ndvi > 60
+  const ndviWeight     = spatialBias ? 0.35 : 0.20
+  const ebirdWeight    = spatialBias ? 0.40 : 0.50
+  const gbifWeight     = spatialBias ? 0.25 : 0.30
+
+  const speciesScore = Math.min(100, Math.max(0, Math.round(
+    ebirdComponent  * ebirdWeight +
+    gbifComponent   * gbifWeight  +
+    ndviCorrection  * ndviWeight
+  )))
   const fhi          = computeFHI({ ndvi, fireCount, speciesScore, birdScore, moistureScore: weather.moistureScore, coverLossPct: gfw.coverLossPct })
   const status       = getStatus(fhi)
 
@@ -220,14 +313,14 @@ export async function fetchZoneData(zoneId) {
     fire: { count: fireCount },
     species: { count: speciesCnt, birdSpecies },
     treeCover: gfw,
-    carbonStock: mock.carbonStock,
+    carbonStock: estimateCarbonStock(ndvi, gfw.coverLossPct, meta.bbox),
     lastUpdated: new Date().toISOString(),
     dataSource: {
       ndvi:      ndviR.value    != null ? 'Copernicus'     : 'mock',
       fire:      fireR.value    != null ? 'NASA FIRMS'     : 'mock',
-      species:   gbifR.value    != null ? 'GBIF'           : 'mock',
-      birds:     ebirdR.value   != null ? 'eBird'          : 'mock',
-      weather:   weatherR.value != null ? 'OpenWeatherMap' : 'mock',
+      species:   gbifR.value    != null ? 'GBIF (2yr)'      : 'mock',
+      birds:     ebirdR.value   != null ? 'eBird (7d)'     : 'mock',
+      weather:   weatherR.value != null ? 'Open-Meteo'     : 'mock',
       treeCover: gfwR.value     != null ? 'Copernicus Land': 'mock',
     },
   }

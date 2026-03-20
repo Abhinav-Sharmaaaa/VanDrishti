@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { RefreshCw, Trash2 } from 'lucide-react'
-import { Line } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip as ChartTooltip } from 'chart.js'
+import { Line, Bar } from 'react-chartjs-2'
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement,
+  BarElement, Filler, Tooltip as ChartTooltip, Legend,
+} from 'chart.js'
 import {
   MapContainer, TileLayer, LayersControl,
   Rectangle, Tooltip, useMap,
@@ -12,8 +15,9 @@ import FetchModal from '../components/FetchModal'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useZoneData } from '../hooks/useZoneData'
 import { removeCustomZone } from '../services/dataService'
+import { fetchFireWeather, fwiRisk } from '../services/fireService'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, ChartTooltip, Legend)
 
 // Fix Vite-broken Leaflet icons
 delete L.Icon.Default.prototype._getIconUrl
@@ -222,6 +226,21 @@ export default function ZoneDetail() {
   const [fetchOpen, setFetchOpen] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
 
+  // ── Fire intelligence state ────────────────────────────────────
+  const [fireData,        setFireData]        = useState(null)
+  const [fireDataLoading, setFireDataLoading] = useState(false)
+
+  useEffect(() => {
+    if (!zone || activeTab !== 'fire') return
+    if (fireData) return
+    const lat = zone.bbox ? (zone.bbox.minLat + zone.bbox.maxLat) / 2 : 29.53
+    const lon = zone.bbox ? (zone.bbox.minLon + zone.bbox.maxLon) / 2 : 78.77
+    setFireDataLoading(true)
+    fetchFireWeather(lat, lon)
+      .then(result => { setFireData(result); setFireDataLoading(false) })
+      .catch(() => setFireDataLoading(false))
+  }, [zone, activeTab])
+
   if (loading || !zone) return (
     <>
       <LoadingSpinner message={`Loading ${resolvedId}…`} />
@@ -379,13 +398,342 @@ export default function ZoneDetail() {
 
       {/* Tabs */}
       <div className="tabs-row" style={{ marginTop: 24 }}>
-        {['fhi', 'ndvi', 'alerts', 'carbon'].map(tab => (
+        {['fhi', 'ndvi', 'fire', 'alerts', 'carbon'].map(tab => (
           <button key={tab} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}>
-            {{ fhi: 'FHI History', ndvi: 'NDVI Analysis', alerts: 'Alerts Log', carbon: 'Carbon Data' }[tab]}
+            {{ fhi: 'FHI History', ndvi: 'NDVI Analysis', fire: '🔥 Fire Status', alerts: 'Alerts Log', carbon: 'Carbon Data' }[tab]}
           </button>
         ))}
       </div>
+
+      {/* ── FIRE STATUS TAB ─────────────────────────────────── */}
+      {activeTab === 'fire' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Loading state */}
+          {fireDataLoading && (
+            <div className="card" style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                Fetching fire weather data from Open-Meteo…
+              </div>
+            </div>
+          )}
+
+          {/* Current fire status — always shown from cached zone data */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            {/* FIRMS thermal events */}
+            <div className="stat-card" style={{
+              borderLeft: `3px solid ${zone.fire.count > 5 ? '#DC3545' : zone.fire.count > 0 ? '#D97706' : '#22A95C'}`,
+            }}>
+              <div className="stat-card-value" style={{ color: zone.fire.count > 5 ? '#DC3545' : zone.fire.count > 0 ? '#D97706' : '#22A95C' }}>
+                {zone.fire.count}
+              </div>
+              <div className="stat-card-label">Active Thermal Events</div>
+              <div className="stat-mini-sub">NASA FIRMS · last 5d</div>
+            </div>
+
+            {/* Current FWI */}
+            {fireData?.current && (
+              <div className="stat-card" style={{ borderLeft: `3px solid ${fireData.current.risk.color}` }}>
+                <div className="stat-card-value" style={{ color: fireData.current.risk.color }}>
+                  {fireData.current.fwi ?? '—'}
+                </div>
+                <div className="stat-card-label">Fire Weather Index</div>
+                <div style={{ marginTop: 4 }}>
+                  <span style={{
+                    fontSize: 9, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                    background: fireData.current.risk.color + '20',
+                    color: fireData.current.risk.color,
+                  }}>{fireData.current.risk.label.toUpperCase()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* 30-day peak FWI */}
+            {fireData?.summary && (
+              <div className="stat-card" style={{ borderLeft: `3px solid ${fwiRisk(fireData.summary.maxFwi30d).color}` }}>
+                <div className="stat-card-value" style={{ color: fwiRisk(fireData.summary.maxFwi30d).color }}>
+                  {fireData.summary.maxFwi30d ?? '—'}
+                </div>
+                <div className="stat-card-label">Peak FWI (30d)</div>
+                <div className="stat-mini-sub">
+                  {fireData.summary.peakDay ? fireData.summary.peakDay.label : '—'}
+                </div>
+              </div>
+            )}
+
+            {/* 7-day forecast peak */}
+            {fireData?.summary && (
+              <div className="stat-card" style={{ borderLeft: `3px solid ${fwiRisk(fireData.summary.peakForecast).color}` }}>
+                <div className="stat-card-value" style={{ color: fwiRisk(fireData.summary.peakForecast).color }}>
+                  {fireData.summary.peakForecast ?? '—'}
+                </div>
+                <div className="stat-card-label">Forecast Peak FWI</div>
+                <div className="stat-mini-sub">
+                  {fireData.summary.peakForecastDay ? `on ${fireData.summary.peakForecastDay.label}` : 'Next 7 days'}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Trend + 7-day risk banner */}
+          {fireData?.summary && (
+            <div style={{
+              padding: '12px 18px', borderRadius: 12,
+              background: fireData.summary.currentRisk.color + '12',
+              border: `1.5px solid ${fireData.summary.currentRisk.color}44`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>
+                  {fireData.summary.currentRisk.level >= 4 ? '🔥' : fireData.summary.currentRisk.level >= 2 ? '⚠️' : '🌿'}
+                </span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: fireData.summary.currentRisk.color }}>
+                    {fireData.summary.currentRisk.label} Fire Danger — {zone.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    30-day avg FWI: <strong>{fireData.summary.avgFwi30d}</strong> ·
+                    Trend: <strong style={{ color: fireData.summary.trend === 'worsening' ? '#DC3545' : fireData.summary.trend === 'improving' ? '#22A95C' : '#D97706' }}>
+                      {fireData.summary.trend === 'worsening' ? '↑ Worsening' : fireData.summary.trend === 'improving' ? '↓ Improving' : '→ Stable'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                Source: Open-Meteo · Canadian FWI System
+              </div>
+            </div>
+          )}
+
+          {/* 30-day FWI history chart */}
+          {fireData?.history?.length > 0 && (
+            <div className="card">
+              <div className="card-header" style={{ marginBottom: 14 }}>
+                <div className="card-title">30-Day Fire Weather History</div>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Canadian FWI · Open-Meteo</span>
+              </div>
+              <div style={{ height: 220 }}>
+                <Bar
+                  data={{
+                    labels: fireData.history.map(d => d.label),
+                    datasets: [{
+                      label: 'FWI',
+                      data:  fireData.history.map(d => d.fwi),
+                      backgroundColor: fireData.history.map(d => d.risk.color + 'cc'),
+                      borderColor:     fireData.history.map(d => d.risk.color),
+                      borderWidth: 1,
+                      borderRadius: 3,
+                    }],
+                  }}
+                  options={{
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        backgroundColor: '#fff', borderColor: '#E0E8E2', borderWidth: 1,
+                        titleColor: '#1A2E1E', bodyColor: '#1A2E1E',
+                        bodyFont: { family: 'JetBrains Mono', size: 11 },
+                        padding: 10, displayColors: false,
+                        callbacks: {
+                          label: ctx => {
+                            const d = fireData.history[ctx.dataIndex]
+                            return [
+                              `FWI: ${d.fwi} — ${d.risk.label}`,
+                              `Temp: ${d.tempMax ?? '—'}°C  Humidity: ${d.rhMin ?? '—'}%`,
+                              `Wind: ${d.wind ?? '—'} km/h  Rain: ${d.rain ?? '—'} mm`,
+                            ]
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      x: {
+                        ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 10 },
+                        grid: { color: 'rgba(180,200,185,0.4)' },
+                      },
+                      y: {
+                        min: 0,
+                        ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 } },
+                        grid: { color: 'rgba(180,200,185,0.4)' },
+                        title: { display: true, text: 'FWI Score', color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 } },
+                      },
+                    },
+                  }}
+                />
+              </div>
+              {/* Risk band legend */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                {[
+                  ['Very Low', '#22A95C', '0–5'],
+                  ['Low',      '#84CC16', '5–12'],
+                  ['Moderate', '#D97706', '12–20'],
+                  ['High',     '#EA580C', '20–30'],
+                  ['Very High','#DC3545', '30–38'],
+                  ['Extreme',  '#7C0000', '38+'],
+                ].map(([label, color, range]) => (
+                  <span key={label} style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)',
+                  }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }}/>
+                    {label} ({range})
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 7-day prediction chart */}
+          {fireData?.forecast?.length > 0 && (
+            <div className="card">
+              <div className="card-header" style={{ marginBottom: 14 }}>
+                <div className="card-title">7-Day Fire Danger Forecast</div>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  Canadian FWI model · Open-Meteo NWP
+                </span>
+              </div>
+              <div style={{ height: 200 }}>
+                <Line
+                  data={{
+                    labels: fireData.forecast.map(d => d.label),
+                    datasets: [{
+                      label: 'Predicted FWI',
+                      data:  fireData.forecast.map(d => d.fwi),
+                      borderColor: '#D97706',
+                      borderWidth: 2,
+                      borderDash: [5, 4],
+                      backgroundColor: 'rgba(217,119,6,0.08)',
+                      pointBackgroundColor: fireData.forecast.map(d => d.risk.color),
+                      pointBorderColor:     fireData.forecast.map(d => d.risk.color),
+                      pointRadius: 5,
+                      pointHoverRadius: 7,
+                      fill: true,
+                      tension: 0.35,
+                    }],
+                  }}
+                  options={{
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        backgroundColor: '#fff', borderColor: '#E0E8E2', borderWidth: 1,
+                        titleColor: '#1A2E1E', bodyColor: '#1A2E1E',
+                        bodyFont: { family: 'JetBrains Mono', size: 11 },
+                        padding: 10, displayColors: false,
+                        callbacks: {
+                          label: ctx => {
+                            const d = fireData.forecast[ctx.dataIndex]
+                            return [
+                              `Predicted FWI: ${d.fwi} — ${d.risk.label}`,
+                              `Max Temp: ${d.tempMax ?? '—'}°C  Min RH: ${d.rhMin ?? '—'}%`,
+                              `Max Wind: ${d.wind ?? '—'} km/h  Rain: ${d.rain ?? '—'} mm`,
+                            ]
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      x: {
+                        ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 10 } },
+                        grid: { color: 'rgba(180,200,185,0.4)' },
+                      },
+                      y: {
+                        min: 0,
+                        ticks: { color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 } },
+                        grid: { color: 'rgba(180,200,185,0.4)' },
+                        title: { display: true, text: 'FWI Score', color: '#6B8872', font: { family: 'JetBrains Mono', size: 9 } },
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              {/* Day-by-day forecast cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginTop: 14 }}>
+                {fireData.forecast.map((d, i) => (
+                  <div key={i} style={{
+                    padding: '8px 6px', borderRadius: 10, textAlign: 'center',
+                    background: d.risk.color + '14',
+                    border: `1.5px solid ${d.risk.color}44`,
+                  }}>
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>{d.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: d.risk.color, lineHeight: 1 }}>
+                      {d.fwi ?? '—'}
+                    </div>
+                    <div style={{ fontSize: 8, marginTop: 3, color: d.risk.color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                      {d.risk.label.toUpperCase()}
+                    </div>
+                    {d.tempMax != null && (
+                      <div style={{ fontSize: 8, color: 'var(--text-muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>
+                        {d.tempMax}°C
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Daily detail table */}
+          {fireData?.history?.length > 0 && (
+            <div className="card">
+              <div className="card-title" style={{ marginBottom: 12 }}>Daily Fire Weather Log — Last 14 Days</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>FWI</th>
+                      <th>Risk</th>
+                      <th>Max Temp</th>
+                      <th>Min Humidity</th>
+                      <th>Max Wind</th>
+                      <th>Rainfall</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fireData.history.slice(-14).reverse().map((d, i) => (
+                      <tr key={i} style={{ borderLeft: `3px solid ${d.risk.color}` }}>
+                        <td className="mono" style={{ fontSize: 11 }}>{d.label}</td>
+                        <td className="mono" style={{ fontWeight: 700, color: d.risk.color }}>{d.fwi ?? '—'}</td>
+                        <td>
+                          <span style={{
+                            fontSize: 9, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
+                            fontFamily: 'var(--font-mono)',
+                            background: d.risk.color + '20', color: d.risk.color,
+                          }}>{d.risk.label}</span>
+                        </td>
+                        <td className="mono">{d.tempMax != null ? `${d.tempMax}°C` : '—'}</td>
+                        <td className="mono">{d.rhMin   != null ? `${d.rhMin}%`   : '—'}</td>
+                        <td className="mono">{d.wind    != null ? `${d.wind} km/h`: '—'}</td>
+                        <td className="mono">{d.rain    != null ? `${d.rain} mm`  : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* No data fallback */}
+          {!fireDataLoading && !fireData && (
+            <div className="card" style={{ textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>🔥</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                Could not load fire weather data.
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
+                Open-Meteo may be temporarily unavailable. FIRMS thermal count: <strong>{zone.fire.count}</strong>
+              </div>
+            </div>
+          )}
+
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
 
       {activeTab === 'fhi' && (
         <>

@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   MapContainer, TileLayer, LayersControl,
-  Rectangle, Popup, useMap, useMapEvents,
+  Rectangle, Popup, Tooltip, useMap, useMapEvents,
 } from 'react-leaflet'
 import L from 'leaflet'
 
@@ -118,10 +118,13 @@ function ZoneOverlay({ zones, selectedId, onZoneClick, colorMode }) {
           weight: sel ? 3 : 1.5,
           dashArray: zone.status === 'pending' ? '6 4' : undefined,
         }}
-        eventHandlers={{ click: () => onZoneClick(zone.id) }}
+        eventHandlers={{ 
+          click: () => onZoneClick(zone.id),
+          mouseover: () => onZoneClick(zone.id)
+        }}
       >
-        <Popup className="vandrishti-popup">
-          <div style={{ minWidth: 180, fontFamily: 'Inter, sans-serif' }}>
+        <Tooltip className="vandrishti-popup" direction="top" sticky>
+          <div style={{ minWidth: 180, fontFamily: 'Inter, sans-serif', padding: 4 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#1A2E1E', marginBottom: 8 }}>{zone.name}</div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
@@ -167,7 +170,7 @@ function ZoneOverlay({ zones, selectedId, onZoneClick, colorMode }) {
               <div style={{ fontSize: 10, color: '#9DB8A2', marginTop: 6 }}>{zone.placeName}</div>
             )}
           </div>
-        </Popup>
+        </Tooltip>
       </Rectangle>
     )
   })

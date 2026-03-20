@@ -39,6 +39,13 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/nominatim/, ''),
       },
+
+      // Groq — free LLM API (Llama 3), proxied to avoid CORS
+      '/groq': {
+        target: 'https://api.groq.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/groq/, ''),
+      },
     },
   },
 })

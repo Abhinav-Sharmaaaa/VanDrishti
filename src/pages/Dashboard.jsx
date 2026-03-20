@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, User, Plus, RefreshCw, AlertTriangle, Trash2 } from 'lucide-react'
+import { Bell, User, Plus, RefreshCw, AlertTriangle, Trash2, Droplets, Wind, Thermometer, TreePine, Bird, Leaf } from 'lucide-react'
 import { Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip as ChartTooltip } from 'chart.js'
 import ZoneMap from '../components/ZoneMap'
 import FetchModal from '../components/FetchModal'
 import AnimatedCounter from '../components/AnimatedCounter'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { useZoneData, useAllZones, useCacheStatus } from '../hooks/useZoneData'
+import { useZoneData, useAllZones, useCacheStatus, notifyCacheUpdated } from '../hooks/useZoneData'
 import { ZONES, removeCustomZone } from '../services/dataService'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip)
@@ -42,7 +42,13 @@ function getLabel(status, fhi) {
   return `CRITICAL — Immediate action (FHI ${fhi})`
 }
 
-const MAP_HEIGHT = 440
+function fmtCarbon(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'Mt'
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'Kt'
+  return n.toLocaleString() + 't'
+}
+
+const MAP_HEIGHT = 420
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -57,7 +63,7 @@ export default function Dashboard() {
 
   const handleRemoveZone = (id) => {
     removeCustomZone(id)
-    refresh?.()
+    notifyCacheUpdated()
     if (activeZone === id) {
       const remaining = Object.keys(ZONES).filter(k => k !== id)
       setActiveZone(remaining[0] ?? firstZoneId)
@@ -65,10 +71,10 @@ export default function Dashboard() {
     setDeleteTarget(null)
   }
 
-  // Auto-open fetch modal when there's no cached data to show
-  if (!loading && !zone && !fetchOpen) {
-    setFetchOpen(true)
-  }
+  // Auto-open fetch modal on devices with no cache
+  useEffect(() => {
+    if (!loading && !zone) setFetchOpen(true)
+  }, [loading, zone])
 
   if (loading || !zone) return (
     <>
@@ -85,7 +91,7 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* ── Top Bar ─────────────────────────────────────────────────── */}
+      {/* ── Top Bar ──────────────────────────────────────────── */}
       <div className="top-bar">
         <div className="top-bar-left">
           <div className="breadcrumb"><span>Dashboard</span></div>
@@ -101,7 +107,6 @@ export default function Dashboard() {
                 >
                   {z.name}
                 </button>
-                {/* Remove button — all zones */}
                 <button
                     onClick={() => setDeleteTarget(id)}
                     style={{
@@ -117,7 +122,6 @@ export default function Dashboard() {
                   </button>
               </div>
             ))}
-            {/* Add Zone — navigates to zones page */}
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => navigate('/zones')}
@@ -132,9 +136,9 @@ export default function Dashboard() {
             <button onClick={() => setFetchOpen(true)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
               borderRadius: 8, fontSize: 11, cursor: 'pointer',
-              border: stale ? '1.5px solid #D97706' : '1px solid #D4E4D8',
-              background: stale ? 'rgba(217,119,6,0.08)' : '#F8FBF9',
-              color: stale ? '#B45309' : '#6B8872',
+              border: stale ? '1.5px solid #D97706' : '1px solid var(--border-subtle)',
+              background: stale ? 'rgba(217,119,6,0.08)' : 'var(--bg-surface)',
+              color: stale ? '#B45309' : 'var(--text-secondary)',
               fontFamily: 'JetBrains Mono, monospace',
             }}>
               {stale ? <AlertTriangle size={12} /> : <RefreshCw size={12} />}
@@ -147,7 +151,6 @@ export default function Dashboard() {
           </button>
           <span className="sat-info">Updated {new Date(zone.lastUpdated).toLocaleTimeString()}</span>
 
-          {/* Bell — navigates to alerts page */}
           <button
             onClick={() => navigate('/alerts')}
             className="notif-bell"
@@ -165,20 +168,8 @@ export default function Dashboard() {
             )}
           </button>
 
-          <div className="user-avatar"><User size={16} /></div>
+          <div className="user-avatar" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }}><User size={16} /></div>
         </div>
-      </div>
-
-      {/* Data source pills */}
-      <div style={{ display: 'flex', gap: 6, padding: '4px 0 8px', flexWrap: 'wrap' }}>
-        {Object.entries(zone.dataSource).map(([key, src]) => (
-          <span key={key} style={{
-            fontSize: 9, padding: '2px 8px', borderRadius: 10,
-            background: src === 'mock' ? 'rgba(217,119,6,0.12)' : 'rgba(34,169,92,0.12)',
-            color: src === 'mock' ? '#D97706' : '#22A95C',
-            fontFamily: 'var(--font-mono)',
-          }}>{key}: {src}</span>
-        ))}
       </div>
 
       {/* Stale banner */}
@@ -198,9 +189,42 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Main Grid */}
-      <div className="two-col col-60-40">
-        <div style={{ height: MAP_HEIGHT, alignSelf: 'flex-start' }}>
+      {/* ── Stats Row (Full Width) ─────────────────────────── */}
+      <div className="stats-row" key={activeZone + '-stats'}>
+        <div className="stat-card">
+          <div className="stat-card-value" style={{ color }}>
+            <AnimatedCounter value={zone.fhi} duration={1000} />
+          </div>
+          <div className="stat-card-label">Forest Health Index</div>
+          <div style={{ marginTop: 6 }}>
+            <span className={`badge badge-${zone.status}`} style={{ fontSize: 9 }}>
+              {zone.status.toUpperCase()}
+            </span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-value text-amber"><AnimatedCounter value={zone.fire.count} /></div>
+          <div className="stat-card-label">Thermal Events</div>
+          <div className="stat-mini-sub">NASA FIRMS</div>
+          <div className="stat-mini-delta text-amber" style={{ marginTop: 4 }}>{zone.fire.count > 4 ? '↑ HIGH' : '↓ LOW'}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-value" style={{ color: '#0EA58C' }}><AnimatedCounter value={zone.species.count} /></div>
+          <div className="stat-card-label">Species Recorded in this Region</div>
+          <div className="stat-mini-sub">GBIF + eBird</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-value text-green">{fmtCarbon(zone.carbonStock)}</div>
+          <div className="stat-card-label">Carbon Stock CO₂</div>
+          <div className={delta.dir === 'down' ? 'stat-mini-delta text-red' : 'stat-mini-delta text-green'} style={{ marginTop: 4 }}>
+            {delta.text}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main Grid (Map + Signals/Trend) ────────────────── */}
+      <div className="two-col col-55-45" key={activeZone}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <ZoneMap
             zones={allZones}
             selectedZoneId={activeZone}
@@ -210,43 +234,33 @@ export default function Dashboard() {
             defaultColorMode="ndvi"
             height={MAP_HEIGHT}
           />
+          {/* Data Source Pills — sit below the map, filling any height gap */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 4 }}>
+            {Object.entries(zone.dataSource).map(([key, src]) => (
+              <span key={key} style={{
+                fontSize: 9, padding: '2px 8px', borderRadius: 10,
+                background: src === 'mock' ? 'rgba(217,119,6,0.12)' : 'rgba(34,169,92,0.12)',
+                color: src === 'mock' ? '#D97706' : '#22A95C',
+                fontFamily: 'var(--font-mono)',
+              }}>{key}: {src}</span>
+            ))}
+          </div>
         </div>
 
-        <div className="stack" key={activeZone}>
-          <div className="card">
-            <div className="card-title">FOREST HEALTH INDEX</div>
-            <div className="mono text-mono-green" style={{ fontSize: 11, letterSpacing: 2, marginBottom: 4 }}>
-              {zone.name.toUpperCase()}
-            </div>
-            <div className="mono" style={{ fontSize: 72, fontWeight: 700, lineHeight: 1, color }}>
-              <AnimatedCounter value={zone.fhi} duration={1000} />
-            </div>
-            <div style={{ margin: '12px 0' }}>
-              <div className="gauge-bar">
-                <div className={`gauge-dot ${zone.status}`} style={{ left: `${zone.fhi}%` }}></div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span className={`badge badge-${zone.status}`}>{getLabel(zone.status, zone.fhi)}</span>
-              <span className={delta.dir === 'down' ? 'text-red' : 'text-green'} style={{ fontSize: 12 }}>
-                {delta.text}
-              </span>
-            </div>
-          </div>
-
+        <div className="stack">
           <div className="card">
             <div className="card-title" style={{ marginBottom: 14 }}>Signal Contributors</div>
             {[
               { label: 'NDVI Canopy',  val: sigs.ndvi,        color: '#22A95C', source: 'Copernicus' },
-              { label: 'Biodiversity', val: sigs.biodiversity, color: '#0EA58C', source: 'GBIF + eBird' },
+              { label: 'Estimated Biodiversity', val: sigs.biodiversity, color: '#0EA58C', source: 'GBIF + eBird' },
               { label: 'Thermal Risk', val: sigs.thermalRisk,  color: '#DC3545', source: 'NASA FIRMS' },
-              { label: 'Moisture',     val: sigs.moisture,     color: '#3B82F6', source: 'OpenWeather' },
+              { label: 'Moisture',     val: sigs.moisture,     color: '#3B82F6', source: 'Openmeteo' },
               { label: 'Cover Health', val: sigs.coverHealth,  color: '#8B5CF6', source: 'GFW' },
             ].map(s => (
               <div className="progress-row" key={s.label}>
                 <span className="progress-label">
                   {s.label}
-                  <span style={{ fontSize: 8, color: '#6B8872', marginLeft: 4 }}>({s.source})</span>
+                  <span style={{ fontSize: 8, color: 'var(--text-secondary)', marginLeft: 4 }}>({s.source})</span>
                 </span>
                 <div className="progress-track">
                   <div className="progress-fill" style={{ width: `${s.val}%`, background: s.color }}></div>
@@ -296,33 +310,117 @@ export default function Dashboard() {
               />
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="quick-stats">
-            <div className="stat-mini-card">
-              <div className="stat-mini-value text-amber"><AnimatedCounter value={zone.fire.count} /></div>
-              <div className="stat-mini-label">Thermal Events</div>
-              <div className="stat-mini-sub">NASA FIRMS</div>
-              <div className="stat-mini-delta text-amber">{zone.fire.count > 4 ? '↑ HIGH' : '↓ LOW'}</div>
+      {/* ── Info Grid (Weather, Tree Cover, Biodiversity) ─── */}
+      <div className="info-grid" style={{ marginTop: 16 }}>
+        {/* Weather Card */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Weather Conditions</div>
+            <span className="text-muted" style={{ fontSize: 10 }}>OpenWeatherMap</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+            <div style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#3B82F6' }}>
+              {zone.weather.temp}°C
             </div>
-            <div className="stat-mini-card">
-              <div className="stat-mini-value text-green">{zone.carbonStock.toLocaleString()}t</div>
-              <div className="stat-mini-label">Carbon Stock CO₂</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              {zone.weather.condition}
             </div>
-            <div className="stat-mini-card">
-              <div className="stat-mini-value" style={{ color: '#0EA58C' }}>{zone.species.count}</div>
-              <div className="stat-mini-label">Species Detected</div>
-              <div className="stat-mini-sub">GBIF + eBird</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="info-metric">
+              <Droplets size={13} style={{ color: '#3B82F6' }} />
+              <span>Humidity</span>
+              <strong>{zone.weather.humidity}%</strong>
             </div>
-            <div className="stat-mini-card">
-              <div className="stat-mini-value text-blue">{zone.weather.temp}°C</div>
-              <div className="stat-mini-label">{zone.weather.condition}</div>
-              <div className="stat-mini-sub">Humidity: {zone.weather.humidity}%</div>
+            <div className="info-metric">
+              <Wind size={13} style={{ color: '#8A8A8A' }} />
+              <span>Wind</span>
+              <strong>{zone.weather.windSpeed} m/s</strong>
             </div>
+            <div className="info-metric">
+              <Droplets size={13} style={{ color: '#0EA58C' }} />
+              <span>Rainfall</span>
+              <strong>{zone.weather.rainfall} mm</strong>
+            </div>
+            <div className="info-metric">
+              <Thermometer size={13} style={{ color: '#D97706' }} />
+              <span>Moisture</span>
+              <strong>{zone.weather.moistureScore}%</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Tree Cover Card */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Tree Cover Analysis</div>
+            <span className="text-muted" style={{ fontSize: 10 }}>Copernicus Land</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
+            <TreePine size={20} style={{ color: '#22A95C' }} />
+            <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--brand-green)' }}>
+              {zone.treeCover.coverLossPct}%
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>cover health</span>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4, color: 'var(--text-secondary)' }}>
+              <span>Cover Health</span>
+              <span className="mono">{zone.treeCover.coverLossPct}%</span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{
+                width: `${zone.treeCover.coverLossPct}%`,
+                background: zone.treeCover.coverLossPct > 60 ? '#22A95C' : zone.treeCover.coverLossPct > 30 ? '#D97706' : '#DC3545',
+              }}></div>
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Leaf size={12} style={{ color: '#D97706' }} />
+            <span>Total loss: <strong className="mono">{zone.treeCover.totalLossHa.toLocaleString()} ha</strong></span>
+          </div>
+        </div>
+
+        {/* Biodiversity Card */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Biodiversity Index</div>
+            <span className="text-muted" style={{ fontSize: 10 }}>GBIF + eBird</span>
+          </div>
+          <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0EA58C' }}>
+                {zone.species.count}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Total Species</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily:'var(--font-mono)', color: '#8B5CF6' }}>
+                {zone.species.birdSpecies}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Bird Species</div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4, color: 'var(--text-secondary)' }}>
+              <span>Biodiversity Score</span>
+              <span className="mono">{sigs.biodiversity}%</span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${sigs.biodiversity}%`, background: '#0EA58C' }}></div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
+            <Bird size={13} style={{ color: '#8B5CF6' }} />
+            <span>Bird activity score: <strong className="mono">{sigs.biodiversity > 60 ? 'High' : sigs.biodiversity > 35 ? 'Moderate' : 'Low'}</strong></span>
           </div>
         </div>
       </div>
 
-      {/* Alert Ticker */}
+      {/* ── Alert Ticker ─────────────────────────────────── */}
       <div className="alert-ticker">
         {zone.fire.count > 5 && (
           <div className="alert-tick-card critical">
@@ -359,12 +457,12 @@ export default function Dashboard() {
       {deleteTarget && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9000,
-          background: 'rgba(26,46,30,0.5)', backdropFilter: 'blur(4px)',
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 360, width: '90%', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Remove zone?</div>
-            <div style={{ fontSize: 13, color: '#6B8872', marginBottom: 20, lineHeight: 1.6 }}>
+          <div style={{ background: 'var(--bg-surface)', borderRadius: 16, padding: 28, maxWidth: 360, width: '90%', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--text-primary)' }}>Remove zone?</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.6 }}>
               <strong>{ZONES[deleteTarget]?.name}</strong> will be removed from monitoring.
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

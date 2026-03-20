@@ -1,12 +1,14 @@
-/**
- * Settings — VanDrishti
- * Add route in App.jsx: <Route path="/settings" element={<Settings />} />
- */
-import { useState } from 'react'
-import { Save, RefreshCw, Trash2, Download, Server, Clock, Database, Wifi } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Save, RefreshCw, Trash2, Download, Server, Clock, Database, Wifi, Bell, Send, Smartphone, CheckCircle, XCircle, Loader, Eye, EyeOff } from 'lucide-react'
 import FetchModal from '../components/FetchModal'
 import { getSettings, saveSettings, getCacheMeta, clearCache, downloadCacheJson, DEFAULT_SETTINGS } from '../services/dataCache'
 import { notifyCacheUpdated, useCacheStatus } from '../hooks/useZoneData'
+import {
+  getNotifSettings, saveNotifSettings, DEFAULT_NOTIF_SETTINGS,
+  requestBrowserPermission, getBrowserPermission,
+  verifyBotToken, detectTelegramChatId,
+  sendTestAlert,
+} from '../services/notificationService'
 
 const INTERVAL_OPTIONS = [
   { value: 0,   label: 'Manual only' },
@@ -61,6 +63,19 @@ export default function Settings() {
   const [cacheCleared, setCacheCleared] = useState(false)
   const { meta, stale, ageMin }      = useCacheStatus()
 
+  // ── Notification state ────────────────────────────────────────
+  const [notif, setNotif]              = useState(getNotifSettings)
+  const [notifSaved, setNotifSaved]    = useState(false)
+  const [tokenStatus, setTokenStatus]  = useState(null)   // null | 'checking' | { ok, botName, error }
+  const [detectStatus, setDetectStatus]= useState(null)   // null | 'detecting' | { ok, chatId, name, error }
+  const [testStatus, setTestStatus]    = useState(null)   // null | 'sending' | { browser, telegram }
+  const [showToken, setShowToken]      = useState(false)
+  const [browserPerm, setBrowserPerm]  = useState(getBrowserPermission)
+
+  const updateNotif     = (key, val) => setNotif(prev => ({ ...prev, [key]: val }))
+  const updateTelegram  = (key, val) => setNotif(prev => ({ ...prev, telegram: { ...prev.telegram, [key]: val } }))
+  const updateBrowser   = (key, val) => setNotif(prev => ({ ...prev, browser:  { ...prev.browser,  [key]: val } }))
+
   const update = (key, val) => setLocalSettings(prev => ({ ...prev, [key]: val }))
 
   const handleSave = () => {
@@ -76,8 +91,46 @@ export default function Settings() {
     setTimeout(() => setCacheCleared(false), 2000)
   }
 
+  // ── Notification handlers ─────────────────────────────────────
+  const handleSaveNotif = () => {
+    saveNotifSettings(notif)
+    setNotifSaved(true)
+    setTimeout(() => setNotifSaved(false), 2000)
+  }
+
+  const handleRequestBrowser = async () => {
+    const result = await requestBrowserPermission()
+    setBrowserPerm(result)
+    if (result === 'granted') {
+      updateBrowser('enabled', true)
+    }
+  }
+
+  const handleVerifyToken = async () => {
+    setTokenStatus('checking')
+    const result = await verifyBotToken(notif.telegram.botToken)
+    setTokenStatus(result)
+  }
+
+  const handleDetectChatId = async () => {
+    setDetectStatus('detecting')
+    const result = await detectTelegramChatId(notif.telegram.botToken)
+    setDetectStatus(result)
+    if (result.ok) {
+      updateTelegram('chatId', result.chatId)
+    }
+  }
+
+  const handleTest = async () => {
+    setTestStatus('sending')
+    const result = await sendTestAlert()
+    setTestStatus(result)
+    setTimeout(() => setTestStatus(null), 5000)
+  }
+
   return (
     <>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div className="top-bar">
         <h1 className="page-title">Settings</h1>
         <div className="top-bar-right">
@@ -191,6 +244,211 @@ export default function Settings() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── Phone Alerts ──────────────────────────────────────────── */}
+        <div className="card" style={{ padding: '4px 20px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 4px', borderBottom: '1px solid #F0F5F1', marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="card-title" style={{ margin: 0 }}>Phone Alerts</div>
+              <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 10, background: 'rgba(34,169,92,0.12)', color: '#16834A', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>NEW</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                {notif.enabled ? 'Enabled' : 'Disabled'}
+              </span>
+              <Toggle value={notif.enabled} onChange={v => updateNotif('enabled', v)} />
+            </div>
+          </div>
+
+          {/* Master description */}
+          <div style={{ padding: '10px 0 4px', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Send a notification directly to your phone each time you dispatch a response team from the Alert Center.
+            The message includes the zone, FHI score, all detected problems, and the dispatched team's contact details.
+          </div>
+
+          {/* ── Telegram section ─────────────────────────────────────── */}
+          <div style={{ margin: '10px 0 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', letterSpacing: '.06em' }}>
+            TELEGRAM BOT
+          </div>
+
+          <SettingRow icon={Send} title="Telegram alerts" description="Send alerts to your phone via a Telegram bot. No app install required beyond Telegram.">
+            <Toggle value={notif.telegram.enabled} onChange={v => updateTelegram('enabled', v)} />
+          </SettingRow>
+
+          {/* Setup instructions */}
+          {notif.telegram.enabled && (
+            <div style={{ margin: '2px 0 14px', background: '#1A2E1E', borderRadius: 12, padding: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: '#7ED9A0', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Send size={13} /> Telegram Setup — 3 steps
+              </div>
+              <div style={{ fontSize: 11, color: '#9DB8A2', lineHeight: 2 }}>
+                <div><span style={{ color: '#7ED9A0', fontWeight: 700 }}>1.</span> Open Telegram and search for <code style={{ color: '#7ED9A0' }}>@BotFather</code></div>
+                <div><span style={{ color: '#7ED9A0', fontWeight: 700 }}>2.</span> Send <code style={{ color: '#7ED9A0' }}>/newbot</code> and follow the prompts → copy the <b>bot token</b></div>
+                <div><span style={{ color: '#7ED9A0', fontWeight: 700 }}>3.</span> Open your new bot and send it any message (e.g. <code style={{ color: '#7ED9A0' }}>hi</code>), then click <b>Detect Chat ID</b> below</div>
+              </div>
+            </div>
+          )}
+
+          {/* Bot token field */}
+          {notif.telegram.enabled && (
+            <div style={{ padding: '12px 0', borderBottom: '1px solid #F0F5F1' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#F0F5F1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Send size={16} color="#6B8872" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#1A2E1E', marginBottom: 2 }}>Bot token</div>
+                  <div style={{ fontSize: 12, color: '#6B8872' }}>From @BotFather — looks like <code>123456:ABC-xyz…</code></div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <input
+                    className="input"
+                    type={showToken ? 'text' : 'password'}
+                    placeholder="Paste bot token…"
+                    value={notif.telegram.botToken}
+                    onChange={e => { updateTelegram('botToken', e.target.value); setTokenStatus(null) }}
+                    style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 12, paddingRight: 36 }}
+                  />
+                  <button onClick={() => setShowToken(p => !p)} style={{
+                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer', color: '#6B8872', display: 'flex',
+                  }}>
+                    {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <button
+                  onClick={handleVerifyToken}
+                  disabled={!notif.telegram.botToken || tokenStatus === 'checking'}
+                  className="btn btn-ghost btn-sm"
+                  style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  {tokenStatus === 'checking'
+                    ? <><Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> Checking…</>
+                    : 'Verify Token'}
+                </button>
+              </div>
+              {/* Token status */}
+              {tokenStatus && tokenStatus !== 'checking' && (
+                <div style={{
+                  marginTop: 8, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6,
+                  color: tokenStatus.ok ? '#16834A' : '#DC3545',
+                }}>
+                  {tokenStatus.ok
+                    ? <><CheckCircle size={13} /> Connected as <strong>{tokenStatus.botName}</strong> (@{tokenStatus.username})</>
+                    : <><XCircle size={13} /> {tokenStatus.error}</>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Chat ID field */}
+          {notif.telegram.enabled && (
+            <div style={{ padding: '12px 0', borderBottom: '1px solid #F0F5F1' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#F0F5F1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Smartphone size={16} color="#6B8872" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#1A2E1E', marginBottom: 2 }}>Chat ID</div>
+                  <div style={{ fontSize: 12, color: '#6B8872' }}>Your Telegram user ID — click Detect to find it automatically.</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="input"
+                  placeholder="e.g. 123456789"
+                  value={notif.telegram.chatId}
+                  onChange={e => { updateTelegram('chatId', e.target.value); setDetectStatus(null) }}
+                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                />
+                <button
+                  onClick={handleDetectChatId}
+                  disabled={!notif.telegram.botToken || detectStatus === 'detecting'}
+                  className="btn btn-ghost btn-sm"
+                  style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
+                >
+                  {detectStatus === 'detecting'
+                    ? <><Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> Detecting…</>
+                    : 'Detect Chat ID'}
+                </button>
+              </div>
+              {/* Detect status */}
+              {detectStatus && detectStatus !== 'detecting' && (
+                <div style={{
+                  marginTop: 8, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6,
+                  color: detectStatus.ok ? '#16834A' : '#DC3545',
+                }}>
+                  {detectStatus.ok
+                    ? <><CheckCircle size={13} /> Found: Chat ID <strong>{detectStatus.chatId}</strong>{detectStatus.name ? ` (${detectStatus.name})` : ''} — auto-filled above.</>
+                    : <><XCircle size={13} /> {detectStatus.error}</>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Browser push section ──────────────────────────────────── */}
+          <div style={{ margin: '10px 0 4px', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', letterSpacing: '.06em' }}>
+            BROWSER NOTIFICATIONS
+          </div>
+
+          <SettingRow
+            icon={Bell}
+            title="Browser push"
+            description={
+              browserPerm === 'unsupported' ? 'Not supported in this browser.' :
+              browserPerm === 'denied' ? 'Permission denied — enable notifications for this site in your browser settings.' :
+              browserPerm === 'granted' ? 'Permission granted. Alerts appear as system notifications.' :
+              'Click to grant notification permission.'
+            }
+          >
+            {browserPerm === 'granted' ? (
+              <Toggle value={notif.browser.enabled} onChange={v => updateBrowser('enabled', v)} />
+            ) : browserPerm === 'unsupported' || browserPerm === 'denied' ? (
+              <span style={{ fontSize: 11, color: '#DC3545' }}>Unavailable</span>
+            ) : (
+              <button onClick={handleRequestBrowser} className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Bell size={13} /> Allow Notifications
+              </button>
+            )}
+          </SettingRow>
+
+          {/* ── Test + Save row ───────────────────────────────────────── */}
+          <div style={{ paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              onClick={handleTest}
+              disabled={testStatus === 'sending' || (!notif.telegram.enabled && !notif.browser.enabled)}
+              className="btn btn-ghost btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {testStatus === 'sending'
+                ? <><Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Sending test…</>
+                : <><Send size={13} /> Send Test Alert</>}
+            </button>
+
+            {/* Test result feedback */}
+            {testStatus && testStatus !== 'sending' && (
+              <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
+                {testStatus.browser && (
+                  <span style={{ color: testStatus.browser.ok ? '#16834A' : '#DC3545', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {testStatus.browser.ok ? <CheckCircle size={12} /> : <XCircle size={12} />} Browser
+                  </span>
+                )}
+                {testStatus.telegram && (
+                  <span style={{ color: testStatus.telegram.ok ? '#16834A' : '#DC3545', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {testStatus.telegram.ok ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                    Telegram {!testStatus.telegram.ok && `— ${testStatus.telegram.error}`}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <button onClick={handleSaveNotif} className="btn btn-primary" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Save size={14} />{notifSaved ? 'Saved ✓' : 'Save Alert Settings'}
+            </button>
+          </div>
         </div>
 
         {/* ── Reset ─────────────────────────────────────────────────── */}
