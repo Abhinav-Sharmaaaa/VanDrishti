@@ -32,7 +32,7 @@ export default function Sidebar() {
         <h1>VanDrishti</h1>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" style={{ flex: 'none' }}>
         {navItems.map(item => {
           const Icon = item.icon
           const isActive = location.pathname === item.to ||
@@ -50,6 +50,18 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', userSelect: 'none' }}>
+        <img 
+          src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" 
+          alt="Emblem" 
+          style={{ 
+            width: 130, 
+            opacity: theme === 'dark' ? 0.15 : 0.08,
+            filter: theme === 'dark' ? 'grayscale(1) invert(1) brightness(1.5)' : 'none'
+          }} 
+        />
+      </div>
 
       <div className="sidebar-footer">
         {/* Theme Toggle */}

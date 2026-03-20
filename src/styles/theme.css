@@ -535,3 +535,28 @@ body {
   .stats-row { grid-template-columns:repeat(2,1fr) !important; }
   .zone-tabs { flex-wrap:wrap; }
 }
+
+/* ── Frosted Glass UI ────────────────────────────────────────── */
+:root {
+  --bg-card:     rgba(255, 255, 255, 0.65);
+  --bg-surface:  rgba(240, 245, 241, 0.65);
+  --bg-surface2: rgba(232, 241, 234, 0.65);
+  --bg-input:    rgba(255, 255, 255, 0.65);
+}
+
+.dark {
+  --bg-card:     rgba(24, 24, 27, 0.65);
+  --bg-surface:  rgba(39, 39, 42, 0.65);
+  --bg-surface2: rgba(63, 63, 70, 0.65);
+  --bg-input:    rgba(24, 24, 27, 0.65);
+  --bg-app:      #09090b; /* keep background fully solid */
+}
+
+/* Apply blur to all major card and surface patterns */
+.card, .stat-card, .zone-card, .alert-row, .node-card, .stat-mini-card,
+.alert-tick-card, .zone-tabs, .summary-pill, .filter-pills,
+.node-card-bottom, .register-node-card, .zone-add-card,
+.map-card, .alert-detail, .input {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
