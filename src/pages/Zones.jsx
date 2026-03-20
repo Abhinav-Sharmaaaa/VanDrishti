@@ -21,6 +21,12 @@ function getRiskLabel(fhi) {
   return 'Critical'
 }
 
+function fmtCarbon(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'Mt'
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'Kt'
+  return n.toLocaleString() + 't'
+}
+
 export default function Zones() {
   const { zones: zonesMap, loading } = useAllZones(60_000)
   const [view, setView]             = useState('map')
@@ -164,7 +170,7 @@ export default function Zones() {
           <div className="stat-mini-sub">GBIF + eBird</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-value text-green">{totalCarbon.toLocaleString()}t</div>
+          <div className="stat-card-value text-green">{fmtCarbon(totalCarbon)}</div>
           <div className="stat-card-label">Total Carbon Stock</div>
           <div className="stat-mini-sub">CO₂ equivalent</div>
         </div>
@@ -287,7 +293,7 @@ export default function Zones() {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}><TreePine size={11} style={{ color: '#22A95C' }} /> Carbon Stock</span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#22A95C' }}>{selected.carbonStock?.toLocaleString() ?? '—'}t</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#22A95C' }}>{selected.carbonStock != null ? fmtCarbon(selected.carbonStock) : '—'}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}><Leaf size={11} style={{ color: '#D97706' }} /> Tree Cover Loss</span>
@@ -429,7 +435,7 @@ export default function Zones() {
               <div style={{ marginTop: 8, padding: '8px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-secondary)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><TreePine size={9} /> Carbon Stock</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--brand-green)' }}>{zone.carbonStock?.toLocaleString() ?? '—'}t</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--brand-green)' }}>{zone.carbonStock != null ? fmtCarbon(zone.carbonStock) : '—'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-secondary)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Leaf size={9} /> Cover Loss</span>

@@ -42,6 +42,12 @@ function getLabel(status, fhi) {
   return `CRITICAL — Immediate action (FHI ${fhi})`
 }
 
+function fmtCarbon(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'Mt'
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'Kt'
+  return n.toLocaleString() + 't'
+}
+
 const MAP_HEIGHT = 420
 
 export default function Dashboard() {
@@ -208,7 +214,7 @@ export default function Dashboard() {
           <div className="stat-mini-sub">GBIF + eBird</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-value text-green">{zone.carbonStock.toLocaleString()}t</div>
+          <div className="stat-card-value text-green">{fmtCarbon(zone.carbonStock)}</div>
           <div className="stat-card-label">Carbon Stock CO₂</div>
           <div className={delta.dir === 'down' ? 'stat-mini-delta text-red' : 'stat-mini-delta text-green'} style={{ marginTop: 4 }}>
             {delta.text}
@@ -218,7 +224,7 @@ export default function Dashboard() {
 
       {/* ── Main Grid (Map + Signals/Trend) ────────────────── */}
       <div className="two-col col-55-45" key={activeZone}>
-        <div style={{ height: MAP_HEIGHT, alignSelf: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <ZoneMap
             zones={allZones}
             selectedZoneId={activeZone}
@@ -228,6 +234,17 @@ export default function Dashboard() {
             defaultColorMode="ndvi"
             height={MAP_HEIGHT}
           />
+          {/* Data Source Pills — sit below the map, filling any height gap */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 4 }}>
+            {Object.entries(zone.dataSource).map(([key, src]) => (
+              <span key={key} style={{
+                fontSize: 9, padding: '2px 8px', borderRadius: 10,
+                background: src === 'mock' ? 'rgba(217,119,6,0.12)' : 'rgba(34,169,92,0.12)',
+                color: src === 'mock' ? '#D97706' : '#22A95C',
+                fontFamily: 'var(--font-mono)',
+              }}>{key}: {src}</span>
+            ))}
+          </div>
         </div>
 
         <div className="stack">
@@ -401,18 +418,6 @@ export default function Dashboard() {
             <span>Bird activity score: <strong className="mono">{sigs.biodiversity > 60 ? 'High' : sigs.biodiversity > 35 ? 'Moderate' : 'Low'}</strong></span>
           </div>
         </div>
-      </div>
-
-      {/* ── Data Source Pills ─────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, padding: '12px 0 4px', flexWrap: 'wrap' }}>
-        {Object.entries(zone.dataSource).map(([key, src]) => (
-          <span key={key} style={{
-            fontSize: 9, padding: '2px 8px', borderRadius: 10,
-            background: src === 'mock' ? 'rgba(217,119,6,0.12)' : 'rgba(34,169,92,0.12)',
-            color: src === 'mock' ? '#D97706' : '#22A95C',
-            fontFamily: 'var(--font-mono)',
-          }}>{key}: {src}</span>
-        ))}
       </div>
 
       {/* ── Alert Ticker ─────────────────────────────────── */}

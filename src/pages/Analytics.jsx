@@ -37,6 +37,13 @@ const T = {
 
 const ZONE_PALETTE = ['#22A95C', '#D97706', '#0EA58C', '#DC3545', '#7C3AED', '#3B82F6']
 
+// ── Carbon formatter ─────────────────────────────────────────────────────────
+function fmtCarbon(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'Mt'
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'Kt'
+  return n.toLocaleString() + 't'
+}
+
 // ── Shared chart defaults ─────────────────────────────────────────────────────
 const CHART_DEFAULTS = {
   responsive: true,
@@ -369,7 +376,7 @@ export default function Analytics() {
         {[
           { val: avgFhi,                               color:T.amber, label:'Avg FHI',          sub:'All Zones'                 },
           { val: totalFire,                            color:T.red,   label:'Thermal Events',    sub:'NASA FIRMS'                },
-          { val: totalCarbon.toLocaleString()+'t',     color:T.green, label:'Carbon Stock CO₂',  sub:'Estimated'                 },
+          { val: fmtCarbon(totalCarbon),                color:T.green, label:'Carbon Stock CO₂',  sub:'Estimated'                 },
           { val: `${atRisk} / ${zones.length}`,        color:T.amber, label:'Zones at Risk',     sub:'Watch + Alert + Critical'  },
         ].map(({ val, color, label, sub }, i) => (
           <div key={label} className="stat-card ana-stat"
@@ -446,7 +453,7 @@ export default function Analytics() {
                     <div key={z.id} style={{ marginBottom:14 }}>
                       <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                         <span style={{ fontSize:12, color:'var(--text-primary)', fontWeight:500 }}>{z.name}</span>
-                        <span style={{ fontFamily:T.mono, fontSize:11, color:col, fontWeight:700 }}>{z.carbonStock.toLocaleString()}t</span>
+                        <span style={{ fontFamily:T.mono, fontSize:11, color:col, fontWeight:700 }}>{fmtCarbon(z.carbonStock)}</span>
                       </div>
                       <div className="carbon-bar-track">
                         <div className="carbon-bar-fill" style={{ width:`${pct}%`, background:col }}/>
@@ -487,7 +494,7 @@ export default function Analytics() {
                     <div key={z.id} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
                       <span style={{ width:10, height:10, borderRadius:2, background:ZONE_PALETTE[i%ZONE_PALETTE.length], flexShrink:0, display:'inline-block' }}/>
                       <span style={{ fontSize:11, color:'var(--text-primary)', flex:1 }}>{z.name}</span>
-                      <span style={{ fontFamily:T.mono, fontSize:11, color:'var(--text-muted)' }}>{z.carbonStock.toLocaleString()}t</span>
+                      <span style={{ fontFamily:T.mono, fontSize:11, color:'var(--text-muted)' }}>{fmtCarbon(z.carbonStock)}</span>
                     </div>
                   ))}
                 </div>

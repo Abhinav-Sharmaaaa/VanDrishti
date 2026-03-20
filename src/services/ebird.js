@@ -1,35 +1,7 @@
-/**
- * eBird API 2.0 — Bird observation data (Cornell Lab of Ornithology)
- * API Docs: https://documenter.getpostman.com/view/664302/S1ENwy59
- *
- * Environment variables required:
- *   VITE_EBIRD_API_KEY
- *
- * Role in biodiversity stack: REAL-TIME signal (last 7 days)
- * Weight in final score: 50%
- *
- * Normalization: South Asian tropical forests (Corbett, Sundarbans) have
- * 300–600 recorded species. Using 300 as the baseline for 100% score gives
- * realistic scores without saturating at small counts.
- */
-
 const BASE_URL = 'https://api.ebird.org/v2'
 
-// South Asian reference richness — tropical moist forest benchmark
-// Corbett NP: ~600 recorded, realistic 7-day survey: 80–150 species
-// Sundarbans: ~300 recorded, realistic 7-day survey: 40–80 species
-// Using 150 as the "excellent" baseline for 7-day point surveys
 const EBIRD_REFERENCE_SPECIES = 150
 
-/**
- * Fetch recent bird observations near a lat/lon.
- * Returns a normalized score (0–100) weighted toward recent detections.
- *
- * @param {number} lat
- * @param {number} lon
- * @param {number} radiusKm - Search radius (max 50 km)
- * @param {number} back     - Days back (7 = recent, matches our update cycle)
- */
 export async function fetchBirdActivity(lat, lon, radiusKm = 25, back = 7) {
   const key = import.meta.env.VITE_EBIRD_API_KEY
   if (!key) {
