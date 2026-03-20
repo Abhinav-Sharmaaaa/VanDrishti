@@ -11,6 +11,7 @@ import {
 } from 'chart.js'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useAllZones } from '../hooks/useZoneData'
+import { sendDispatchNotification } from '../services/notificationService'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, ChartTooltip)
 
@@ -194,13 +195,13 @@ function AlertDetail({ alert, dispatched, onDispatch }) {
         <div style={{marginTop:14}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
             <div className="card-title">Dispatch to Government Teams</div>
-            <button onClick={e=>{e.stopPropagation();alert.teams.forEach(t=>{if(!ad.has(t.id))onDispatch(alert.id,t.id,alert.zone)})}}
+            <button onClick={e=>{e.stopPropagation();alert.teams.forEach(t=>{if(!ad.has(t.id))onDispatch(alert.id,t.id,alert.zone,alert)})}}
               style={{display:'flex',alignItems:'center',gap:5,padding:'4px 12px',borderRadius:8,fontSize:10,fontWeight:700,cursor:'pointer',background:'var(--text-primary)',color:'#7ED9A0',border:'none',fontFamily:'var(--font-mono)'}}>
               <Send size={10}/> Dispatch All
             </button>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:5}}>
-            {alert.teams.map(t=><TeamRow key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone)}/>)}
+            {alert.teams.map(t=><TeamRow key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone,alert)}/>)}
           </div>
         </div>
       )}
@@ -251,7 +252,7 @@ function ListView({ alerts, expanded, setExpanded, dispatched, onDispatch, onChi
                 <span className="alert-row-time">{alert.time}</span>
                 <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
                   {!alert.resolved && alert.teams.slice(0,2).map(t=>(
-                    <DispatchBtn key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone)}/>
+                    <DispatchBtn key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone,alert)}/>
                   ))}
                 </div>
                 <ChevronDown size={14} className={`alert-expand-icon ${isOpen?'open':''}`}/>
@@ -307,7 +308,7 @@ function TableView({ alerts, dispatched, onDispatch, onChipClick, activeProblem 
                   </td>
                   <td style={{padding:'10px 14px'}}>
                     <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                      {alert.teams.slice(0,4).map(t=><TeamDot key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone)}/>)}
+                      {alert.teams.slice(0,4).map(t=><TeamDot key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone,alert)}/>)}
                       {alert.teams.length>4 && <span style={{fontSize:9,color:'var(--text-muted)'}}>+{alert.teams.length-4}</span>}
                     </div>
                   </td>
@@ -316,7 +317,7 @@ function TableView({ alerts, dispatched, onDispatch, onChipClick, activeProblem 
                   </td>
                   <td style={{padding:'10px 14px'}}>
                     {!alert.resolved
-                      ? <button onClick={()=>alert.teams.forEach(t=>{if(!ad.has(t.id))onDispatch(alert.id,t.id,alert.zone)})}
+                      ? <button onClick={()=>alert.teams.forEach(t=>{if(!ad.has(t.id))onDispatch(alert.id,t.id,alert.zone,alert)})}
                           className="btn btn-primary btn-sm" style={{fontSize:9,padding:'4px 10px',whiteSpace:'nowrap'}}>
                           <Send size={9}/> Dispatch All
                         </button>
@@ -370,14 +371,14 @@ function CardsView({ alerts, dispatched, onDispatch, onChipClick, activeProblem 
             {alert.teams.length>0 && (
               <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:12,padding:'7px 10px',background:'var(--bg-surface)',borderRadius:8}}>
                 <span style={{fontSize:8,color:'var(--text-muted)',fontFamily:'var(--font-mono)',marginRight:2}}>TEAMS</span>
-                {alert.teams.slice(0,5).map(t=><TeamDot key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone)}/>)}
+                {alert.teams.slice(0,5).map(t=><TeamDot key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone,alert)}/>)}
                 {allDone && <span style={{marginLeft:'auto',fontSize:8,color:'#7C3AED',fontFamily:'var(--font-mono)',fontWeight:700}}>ALL SENT ✓</span>}
               </div>
             )}
             <div style={{display:'flex',gap:6}}>
               {!alert.resolved && (
                 <button className="btn btn-primary btn-sm" style={{flex:1,justifyContent:'center',fontSize:10}}
-                  onClick={()=>alert.teams.forEach(t=>{if(!ad.has(t.id))onDispatch(alert.id,t.id,alert.zone)})}>
+                  onClick={()=>alert.teams.forEach(t=>{if(!ad.has(t.id))onDispatch(alert.id,t.id,alert.zone,alert)})}>
                   <Send size={10}/> Dispatch All
                 </button>
               )}
@@ -411,7 +412,7 @@ function CompactView({ alerts, dispatched, onDispatch, onChipClick, activeProble
               {!alert.problems.length && <span style={{fontSize:9,color:'#22A95C',fontFamily:'var(--font-mono)'}}>✓ Healthy</span>}
             </div>
             <div style={{display:'flex',gap:3,alignItems:'center',flexShrink:0}}>
-              {alert.teams.slice(0,4).map(t=><TeamDot key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone)}/>)}
+              {alert.teams.slice(0,4).map(t=><TeamDot key={t.id} team={t} dispatched={ad} onDispatch={id=>onDispatch(alert.id,id,alert.zone,alert)}/>)}
               <span style={{fontSize:9,color:'var(--text-faint)',fontFamily:'var(--font-mono)',marginLeft:6,whiteSpace:'nowrap'}}>{alert.time}</span>
             </div>
           </div>
@@ -433,17 +434,24 @@ export default function Alerts() {
   const [dispatched,     setDispatched]     = useState({})
   const [dispatchLog,    setDispatchLog]    = useState([])
 
-  const handleDispatch = useCallback((alertId, teamId, zone) => {
+  const handleDispatch = useCallback((alertId, teamId, zone, alert) => {
     setDispatched(prev => {
       const cur = prev[alertId] ? new Set(prev[alertId]) : new Set()
       cur.add(teamId); return { ...prev, [alertId]: cur }
     })
-    const team = Object.values(GOVT_TEAMS).find(t=>t.id===teamId)
+    const team = Object.values(GOVT_TEAMS).find(t => t.id === teamId)
     setDispatchLog(prev => [{
-      id:Date.now(),
-      time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
-      team:team.name, dept:team.dept, zone, color:team.color,
-    }, ...prev.slice(0,9)])
+      id:   Date.now(),
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      team: team.name, dept: team.dept, zone, color: team.color,
+    }, ...prev.slice(0, 9)])
+
+    // Send Telegram + browser notification with full context
+    if (alert) {
+      sendDispatchNotification(team, alert).catch(err =>
+        console.error('[Alerts] Dispatch notification error:', err)
+      )
+    }
   }, [])
 
   const handleChipClick = useCallback(type => {
