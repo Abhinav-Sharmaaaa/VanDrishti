@@ -560,3 +560,85 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
+
+/* ── Splash Screen ───────────────────────────────────────────── */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-app);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.splash-logo {
+  margin-bottom: 24px;
+  animation: pulse-subtle 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 16px rgba(34, 169, 92, 0.3));
+}
+
+.splash-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.splash-subtitle {
+  font-size: 1rem;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.splash-loader {
+  width: 120px;
+  height: 3px;
+  background: var(--bg-surface2);
+  border-radius: 4px;
+  margin-top: 32px;
+  overflow: hidden;
+  position: relative;
+}
+
+.splash-loader-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: var(--brand-green, #22A95C);
+  border-radius: 4px;
+  animation: loader-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes loader-slide {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+.splash-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+}

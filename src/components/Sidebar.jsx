@@ -57,8 +57,8 @@ export default function Sidebar() {
           alt="Emblem" 
           style={{ 
             width: 130, 
-            opacity: theme === 'dark' ? 0.15 : 0.08,
-            filter: theme === 'dark' ? 'grayscale(1) invert(1) brightness(1.5)' : 'none'
+            opacity: theme === 'dark' ? 0.15 : 0.25,
+            filter: theme === 'dark' ? 'grayscale(1) invert(1) brightness(1.5)' : 'grayscale(1) brightness(0.8)'
           }} 
         />
       </div>

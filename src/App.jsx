@@ -10,11 +10,13 @@ import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
 import Profile from './pages/Profile'
 import FetchModal from './components/FetchModal'
+import SplashScreen from './components/SplashScreen'
 import { isCacheStale, getSettings } from './services/dataCache'
 
 export default function App() {
   const [fetchModalOpen, setFetchModalOpen] = useState(false)
   const [autoFetch, setAutoFetch] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
     const settings = getSettings()
@@ -25,8 +27,10 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app-layout">
-      <Sidebar />
+    <>
+      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+      <div className="app-layout">
+        <Sidebar />
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -47,5 +51,6 @@ export default function App() {
         autoFetch={autoFetch}
       />
     </div>
+    </>
   )
 }
