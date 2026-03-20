@@ -252,7 +252,7 @@ export default function Dashboard() {
             <div className="card-title" style={{ marginBottom: 14 }}>Signal Contributors</div>
             {[
               { label: 'NDVI Canopy',  val: sigs.ndvi,        color: '#22A95C', source: 'Copernicus' },
-              { label: 'Biodiversity', val: sigs.biodiversity, color: '#0EA58C', source: 'GBIF + eBird' },
+              { label: 'Estimated Biodiversity', val: sigs.biodiversity, color: '#0EA58C', source: 'GBIF + eBird' },
               { label: 'Thermal Risk', val: sigs.thermalRisk,  color: '#DC3545', source: 'NASA FIRMS' },
               { label: 'Moisture',     val: sigs.moisture,     color: '#3B82F6', source: 'OpenWeather' },
               { label: 'Cover Health', val: sigs.coverHealth,  color: '#8B5CF6', source: 'GFW' },
