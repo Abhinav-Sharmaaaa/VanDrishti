@@ -8,10 +8,11 @@ const WS_URL = import.meta.env.VITE_BACKEND_WS || 'ws://localhost:3001'
  * so it can be merged directly into the zone cache.
  */
 export function useEdgeData() {
-  const [snapshots,  setSnapshots]  = useState({})   // zoneId → latest snapshot
-  const [devices,    setDevices]    = useState([])
-  const [connected,  setConnected]  = useState(false)
-  const [lastSync,   setLastSync]   = useState(null)  // timestamp of last received msg
+  const [snapshots, setSnapshots] = useState({})  // zoneId → latest snapshot
+  const [devices,   setDevices]   = useState([])
+  const [connected, setConnected] = useState(false)
+  const [lastSync,  setLastSync]  = useState(null) // timestamp of last received msg
+
   const wsRef    = useRef(null)
   const retries  = useRef(0)
   const timerRef = useRef(null)
@@ -54,7 +55,10 @@ export function useEdgeData() {
 
   useEffect(() => {
     connect()
-    return () => { clearTimeout(timerRef.current); wsRef.current?.close() }
+    return () => {
+      clearTimeout(timerRef.current)
+      wsRef.current?.close()
+    }
   }, [connect])
 
   // Format last sync for display

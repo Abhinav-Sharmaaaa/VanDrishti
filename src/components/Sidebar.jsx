@@ -1,20 +1,34 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { Map, Activity, Bell, TrendingUp, Cpu, Settings, Sun, Moon, User } from 'lucide-react'
 import { useTheme } from '../ThemeContext'
+import { useEdgeData } from '../hooks/useEdgeData'
 
 const navItems = [
-  { to: '/dashboard', icon: Map, label: 'Dashboard' },
-  { to: '/zones', icon: Activity, label: 'Forest Zones' },
-  { to: '/alerts', icon: Bell, label: 'Alerts', badge: 3 },
+  { to: '/dashboard', icon: Map,        label: 'Dashboard' },
+  { to: '/zones',     icon: Activity,   label: 'Forest Zones' },
+  { to: '/alerts',    icon: Bell,       label: 'Alerts', badge: 3 },
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
-  { to: '/edge-nodes', icon: Cpu, label: 'Edge Nodes' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
-  { to: '/profile', icon: User, label: 'Profile' },
+  { to: '/edge-nodes',icon: Cpu,        label: 'Edge Nodes' },
+  { to: '/settings',  icon: Settings,   label: 'Settings' },
+  { to: '/profile',   icon: User,       label: 'Profile' },
 ]
 
 export default function Sidebar() {
-  const location = useLocation()
+  const location          = useLocation()
   const { theme, toggle } = useTheme()
+  const { connected, snapshots, lastSyncLabel } = useEdgeData()
+
+  const nodeCount   = Object.keys(snapshots).length
+  const anySnapshot = Object.values(snapshots)[0]
+  const worstStatus = Object.values(snapshots).reduce((worst, s) => {
+    const rank = { healthy: 0, watch: 1, alert: 2, critical: 3 }
+    return (rank[s.status] ?? 0) > (rank[worst] ?? 0) ? s.status : worst
+  }, 'healthy')
+
+  const statusColor = {
+    healthy: '#22A95C', watch: '#D97706',
+    alert: '#EA580C',   critical: '#DC3545',
+  }[worstStatus] ?? '#6B8F72'
 
   return (
     <aside className="sidebar">
@@ -34,16 +48,13 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav" style={{ flex: 'none' }}>
         {navItems.map(item => {
-          const Icon = item.icon
+          const Icon     = item.icon
           const isActive = location.pathname === item.to ||
             (item.to === '/zones' && location.pathname.startsWith('/zones'))
           return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={`nav-item ${isActive ? 'active' : ''}`}
-            >
-              <Icon size={18} />
+            <NavLink key={item.to} to={item.to}
+              className={`nav-item ${isActive ? 'active' : ''}`}>
+              <Icon size={18}/>
               <span>{item.label}</span>
               {item.badge && <span className="nav-badge">{item.badge}</span>}
             </NavLink>
@@ -52,38 +63,62 @@ export default function Sidebar() {
       </nav>
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', userSelect: 'none' }}>
-        <img 
-          src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" 
-          alt="Emblem" 
-          style={{ 
-            width: 130, 
-            opacity: theme === 'dark' ? 0.15 : 0.25,
-            filter: theme === 'dark' ? 'grayscale(1) invert(1) brightness(1.5)' : 'grayscale(1) brightness(0.8)'
-          }} 
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg"
+          alt="Emblem"
+          style={{
+            width: 130,
+            opacity: theme === 'dark' ? 0.15 : 0.08,
+            filter: theme === 'dark' ? 'grayscale(1) invert(1) brightness(1.5)' : 'none'
+          }}
         />
       </div>
 
       <div className="sidebar-footer">
-        {/* Theme Toggle */}
-        <button
-          onClick={toggle}
-          className="theme-toggle"
-          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-        >
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+        <button onClick={toggle} className="theme-toggle"
+          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+          {theme === 'light' ? <Moon size={16}/> : <Sun size={16}/>}
           <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
         </button>
 
+        {/* Real RPi status */}
         <div className="edge-node-status">
           <div className="node-header">
-            <Cpu size={14} color="#6B8F72" />
-            <span className="node-label">RPi Edge Node</span>
+            <Cpu size={14} color="#6B8F72"/>
+            <span className="node-label">
+              RPi Edge Node{nodeCount > 1 ? `s (${nodeCount})` : ''}
+            </span>
           </div>
+
           <div className="flex items-center gap-8" style={{ marginTop: 4 }}>
-            <span className="pulse-dot"></span>
-            <span className="online-tag">ONLINE</span>
+            {connected && nodeCount > 0 ? (
+              <>
+                <span className="pulse-dot" style={{ background: statusColor }}/>
+                <span className="online-tag" style={{ color: statusColor }}>
+                  {worstStatus.toUpperCase()}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="pulse-dot" style={{ background: '#888', animation: 'none' }}/>
+                <span style={{ fontSize: 11, color: '#888', fontWeight: 600,
+                               fontFamily: 'var(--font-mono)' }}>
+                  {connected ? 'NO NODES' : 'OFFLINE'}
+                </span>
+              </>
+            )}
           </div>
-          <div className="last-sync" style={{ marginTop: 4 }}>last sync: 2 min ago</div>
+
+          {anySnapshot && (
+            <div style={{ fontSize: 10, color: '#6B8872', marginTop: 2,
+                          fontFamily: 'var(--font-mono)' }}>
+              FHI: {anySnapshot.fhi} · {anySnapshot.name}
+            </div>
+          )}
+
+          <div className="last-sync" style={{ marginTop: 4 }}>
+            last sync: {lastSyncLabel}
+          </div>
         </div>
       </div>
     </aside>
