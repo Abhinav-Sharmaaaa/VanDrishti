@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useAllZones } from '../hooks/useZoneData'
+import { useTheme } from '../ThemeContext'
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -45,40 +46,49 @@ function fmtCarbon(n) {
 }
 
 // ── Shared chart defaults ─────────────────────────────────────────────────────
-const CHART_DEFAULTS = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 600, easing: 'easeInOutQuart' },
-  plugins: {
-    legend: {
-      position: 'bottom',
-      labels: { color: 'var(--text-muted)', font: { family: T.mono, size: 10 }, boxWidth: 10, padding: 12 },
+function getChartDefaults(theme) {
+  const isDark = theme === 'dark'
+  const muted = isDark ? '#a1a1aa' : '#6B8872'
+  const grid  = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(180,200,185,0.35)'
+  const primary = isDark ? '#fafafa' : '#1A2E1E'
+  const bg = isDark ? '#18181b' : '#FFFFFF'
+  const border = isDark ? '#27272a' : '#E0E8E2'
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 600, easing: 'easeInOutQuart' },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: muted, font: { family: T.mono, size: 10 }, boxWidth: 10, padding: 12 },
+      },
+      tooltip: {
+        backgroundColor: bg,
+        borderColor: border,
+        borderWidth: 1,
+        titleColor: primary,
+        bodyColor: T.green,
+        bodyFont: { family: T.mono, size: 11 },
+        titleFont: { family: T.mono, size: 11, weight: '600' },
+        padding: 10,
+        cornerRadius: 8,
+      },
     },
-    tooltip: {
-      backgroundColor: 'var(--bg-card)',
-      borderColor: 'var(--border)',
-      borderWidth: 1,
-      titleColor: 'var(--text-primary)',
-      bodyColor: T.green,
-      bodyFont: { family: T.mono, size: 11 },
-      titleFont: { family: T.mono, size: 11, weight: '600' },
-      padding: 10,
-      cornerRadius: 8,
+    scales: {
+      x: {
+        ticks: { color: muted, font: { family: T.mono, size: 10 } },
+        grid:  { color: grid },
+        border:{ color: grid },
+      },
+      y: {
+        min: 0, max: 100,
+        ticks: { color: muted, font: { family: T.mono, size: 10 }, stepSize: 25 },
+        grid:  { color: grid },
+        border:{ color: grid },
+      },
     },
-  },
-  scales: {
-    x: {
-      ticks: { color: 'var(--text-muted)', font: { family: T.mono, size: 10 } },
-      grid:  { color: 'var(--chart-grid)' },
-      border:{ color: 'var(--chart-grid)' },
-    },
-    y: {
-      min: 0, max: 100,
-      ticks: { color: 'var(--text-muted)', font: { family: T.mono, size: 10 }, stepSize: 25 },
-      grid:  { color: 'var(--chart-grid)' },
-      border:{ color: 'var(--chart-grid)' },
-    },
-  },
+  }
 }
 
 // ── Data generators ───────────────────────────────────────────────────────────
@@ -181,6 +191,9 @@ function SCard({ title, subtitle, actions, children, delay=0, minH }) {
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Analytics() {
+  const { theme } = useTheme()
+  const CHART_DEFAULTS = useMemo(() => getChartDefaults(theme), [theme])
+  
   const { zones: zonesMap, loading } = useAllZones(60_000)
   const [fhiChartType,    setFhiChartType]    = useState('bar')
   const [carbonChartType, setCarbonChartType] = useState('bars')
