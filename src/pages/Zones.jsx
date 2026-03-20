@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Plus, Trash2, Map, LayoutGrid, Droplets, Wind, Thermometer, TreePine, Bird, Leaf, MapPin, Layers, Activity } from 'lucide-react'
+import { Search, Plus, Trash2, Map, LayoutGrid, Droplets, Wind, Thermometer, TreePine, Bird, Leaf, MapPin, Layers, Activity, Send, Download, CheckCircle } from 'lucide-react'
 import ZoneMap from '../components/ZoneMap'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useAllZones, notifyCacheUpdated } from '../hooks/useZoneData'
 import { addCustomZone, removeCustomZone } from '../services/dataService'
+import { sendDispatchNotification } from '../services/notificationService'
 
 function getStatusColor(fhi) {
   if (fhi >= 60) return '#2ECC71'
@@ -21,12 +22,6 @@ function getRiskLabel(fhi) {
   return 'Critical'
 }
 
-function fmtCarbon(n) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'Mt'
-  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'Kt'
-  return n.toLocaleString() + 't'
-}
-
 export default function Zones() {
   const { zones: zonesMap, loading } = useAllZones(60_000)
   const [view, setView]             = useState('map')
@@ -35,12 +30,67 @@ export default function Zones() {
   const [statusFilter, setStatus]   = useState('all')
   const [deleteTarget, setDelete]   = useState(null)
   const [pendingZones, setPending]  = useState([])
+  const [dispatching,  setDispatching]  = useState(false)
+  const [dispatchDone, setDispatchDone] = useState(false)
 
+  // ── FIX: zones must be declared before any useCallback that references it ──
   const zones = (() => {
     const base = Object.values(zonesMap)
     const existingIds = new Set(base.map(z => z.id))
     return [...base, ...pendingZones.filter(z => !existingIds.has(z.id))]
   })()
+
+  // ── Dispatch Ranger ─────────────────────────────────────────────
+  const handleDispatchRanger = useCallback(async (zone) => {
+    if (!zone || dispatching) return
+    setDispatching(true)
+    const rangerTeam = { id: 'ranger', name: 'Forest Ranger Team', dept: 'Field Operations Unit', contact: '+91-98765-43210' }
+    const problems = []
+    if (zone.fire?.count > 0)            problems.push({ label: 'Thermal Events',  description: `${zone.fire.count} thermal anomalies detected. FHI: ${zone.fhi}.` })
+    if (zone.signals?.ndvi < 50)         problems.push({ label: 'Low NDVI',        description: `NDVI at ${zone.signals.ndvi}%. Canopy health declining.` })
+    if (zone.signals?.moisture < 40)     problems.push({ label: 'Moisture Stress', description: `Moisture index at ${zone.signals.moisture}%. Drought risk.` })
+    if (zone.signals?.thermalRisk >= 30) problems.push({ label: 'Thermal Risk',    description: `Thermal risk at ${zone.signals.thermalRisk}%.` })
+    if (!problems.length) problems.push({ label: 'Routine Patrol', description: `FHI ${zone.fhi}. Routine ground-truth verification requested.` })
+    const alert = {
+      zone: zone.name, fhi: zone.fhi,
+      severity: zone.status === 'critical' ? 'critical' : zone.status === 'alert' ? 'alert' : 'watch',
+      problems, teams: [rangerTeam],
+    }
+    await sendDispatchNotification(rangerTeam, alert).catch(err => console.error('[Zones] Dispatch error:', err))
+    setDispatching(false)
+    setDispatchDone(true)
+    setTimeout(() => setDispatchDone(false), 3000)
+  }, [dispatching])
+
+  // ── Export zones CSV ─────────────────────────────────────────────
+  // FIX: zones is now declared above, so it's safe to reference here
+  const handleExportZones = useCallback(() => {
+    const rows = [
+      ['Zone', 'Status', 'FHI', 'NDVI', 'Thermal Risk', 'Biodiversity', 'Moisture', 'Cover Health',
+       'Temp (°C)', 'Humidity (%)', 'Rainfall (mm)', 'Wind (m/s)', 'Condition',
+       'Species', 'Bird Species', 'Fire Events', 'Carbon Stock (t)', 'Cover Loss (ha)',
+       'Coordinates', 'Place', 'Last Updated'],
+      ...zones.map(z => [
+        z.name, z.status, z.fhi,
+        z.signals?.ndvi ?? '', z.signals?.thermalRisk ?? '', z.signals?.biodiversity ?? '',
+        z.signals?.moisture ?? '', z.signals?.coverHealth ?? '',
+        z.weather?.temp ?? '', z.weather?.humidity ?? '', z.weather?.rainfall ?? '',
+        z.weather?.windSpeed ?? '', z.weather?.condition ?? '',
+        z.species?.count ?? '', z.species?.birdSpecies ?? '',
+        z.fire?.count ?? '', z.carbonStock ?? '', z.treeCover?.totalLossHa ?? '',
+        z.coords ?? '', z.placeName ?? '',
+        new Date(z.lastUpdated).toLocaleString(),
+      ]),
+    ]
+    const csv  = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `vandrishti-zones-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [zones])
 
   const filtered = zones.filter(z => {
     const okSearch = !search || z.name.toLowerCase().includes(search.toLowerCase())
@@ -127,6 +177,11 @@ export default function Zones() {
             <option value="alert">Alert</option>
             <option value="critical">Critical</option>
           </select>
+
+          <button onClick={handleExportZones} className="btn btn-ghost btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Download size={13} /> Export CSV
+          </button>
         </div>
       </div>
 
@@ -170,7 +225,7 @@ export default function Zones() {
           <div className="stat-mini-sub">GBIF + eBird</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-value text-green">{fmtCarbon(totalCarbon)}</div>
+          <div className="stat-card-value text-green">{totalCarbon.toLocaleString()}t</div>
           <div className="stat-card-label">Total Carbon Stock</div>
           <div className="stat-mini-sub">CO₂ equivalent</div>
         </div>
@@ -293,7 +348,7 @@ export default function Zones() {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}><TreePine size={11} style={{ color: '#22A95C' }} /> Carbon Stock</span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#22A95C' }}>{selected.carbonStock != null ? fmtCarbon(selected.carbonStock) : '—'}</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#22A95C' }}>{selected.carbonStock?.toLocaleString() ?? '—'}t</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}><Leaf size={11} style={{ color: '#D97706' }} /> Tree Cover Loss</span>
@@ -314,12 +369,23 @@ export default function Zones() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, flexDirection: 'column' }}>
                   {selected.fhi != null && (
                     <Link to={`/zones/${selected.id}`} className="btn btn-primary btn-sm" style={{ flex: 1, textAlign: 'center' }}>
                       View Details →
                     </Link>
                   )}
+                  <button
+                    onClick={() => handleDispatchRanger(selected)}
+                    disabled={dispatching}
+                    className="btn btn-sm"
+                    style={{ background: '#DC3545', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: dispatching ? 0.7 : 1 }}>
+                    {dispatchDone
+                      ? <><CheckCircle size={13} /> Dispatched ✓</>
+                      : dispatching
+                      ? <><Send size={13} /> Dispatching…</>
+                      : <><Send size={13} /> Dispatch Ranger</>}
+                  </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setDelete(selected.id)} style={{ color: '#DC3545' }}>
                     <Trash2 size={13}/>
                   </button>
@@ -435,7 +501,7 @@ export default function Zones() {
               <div style={{ marginTop: 8, padding: '8px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-secondary)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><TreePine size={9} /> Carbon Stock</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--brand-green)' }}>{zone.carbonStock != null ? fmtCarbon(zone.carbonStock) : '—'}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--brand-green)' }}>{zone.carbonStock?.toLocaleString() ?? '—'}t</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-secondary)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Leaf size={9} /> Cover Loss</span>
@@ -467,6 +533,13 @@ export default function Zones() {
                 <span className="updated">Updated {new Date(zone.lastUpdated).toLocaleTimeString()}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button className="btn btn-ghost btn-sm" onClick={() => setDelete(zone.id)} style={{ color: '#DC3545' }}><Trash2 size={12}/></button>
+                  <button
+                    onClick={() => handleDispatchRanger(zone)}
+                    disabled={dispatching}
+                    className="btn btn-sm btn-ghost"
+                    style={{ color: '#DC3545', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+                    <Send size={11}/>{dispatchDone ? '✓' : 'Ranger'}
+                  </button>
                   {zone.fhi != null && <Link to={`/zones/${zone.id}`} className="btn btn-ghost btn-sm">View →</Link>}
                 </div>
               </div>

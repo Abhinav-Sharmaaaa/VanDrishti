@@ -1,33 +1,3 @@
-/**
- * VanDrishti — Fire Prediction Service
- *
- * Data sources (all free, no API key):
- *   • Open-Meteo Forecast API — past 30 days + 16-day forecast of fire-relevant
- *     weather variables. Supports `past_days` parameter so we get real history.
- *   • NASA FIRMS — current active fire count (passed in from existing cache).
- *
- * Fire Weather Index (FWI) — simplified Canadian FWI system:
- *   Components:
- *     Fine Fuel Moisture Code (FFMC) — driven by temp, humidity, rain, wind
- *     Build-up Index (BUI)           — driven by drought (low rain, high ET0)
- *     Fire Weather Index             — combines FFMC + BUI
- *
- *   We use a simplified linear model calibrated to match CIFFC reference values:
- *     FWI = clamp(
- *       temp_max  * 0.35  +
- *       wind_max  * 0.25  +
- *       (100 - rh_min) * 0.25  +
- *       drought   * 0.15         — (3 - rain_mm) clamped 0-3, scaled 0-100
- *     , 0, 100)
- *
- * Risk levels:
- *   0–20   Low        — green
- *   20–40  Moderate   — yellow
- *   40–60  High       — orange
- *   60–80  Very High  — red
- *   80–100 Extreme    — deep red
- */
-
 const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast'
 
 // ---------------------------------------------------------------------------
@@ -99,30 +69,6 @@ function trendSlope(values) {
   return den === 0 ? 0 : num / den
 }
 
-// ---------------------------------------------------------------------------
-// Main fetch
-// ---------------------------------------------------------------------------
-
-/**
- * Fetch fire weather data for a zone.
- *
- * @param {number} lat
- * @param {number} lon
- * @param {number} currentFireCount  — from the existing FIRMS cache
- * @returns {Promise<FireData>}
- *
- * FireData shape:
- * {
- *   currentFWI:     number,
- *   currentRisk:    RiskBand,
- *   history:        Array<{ date, fwi, fireCount, tempMax, rhMin, windMax, rain }>,  // 30 days
- *   forecast:       Array<{ date, fwi, fireCount, tempMax, rhMin, windMax, rain, rainProb }>, // 16 days
- *   trend:          'improving' | 'stable' | 'worsening',
- *   trendSlope:     number,
- *   peakFwiDay:     { date, fwi },   // worst day in 16-day forecast
- *   riskFactors:    { temp, humidity, wind, drought },  // 0-100 scores today
- * }
- */
 export async function fetchFireData(lat, lon, currentFireCount = 0) {
   const params = new URLSearchParams({
     latitude:     lat,

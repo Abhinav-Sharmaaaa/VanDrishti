@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import {
   ChevronDown, CheckCircle, Send, Phone, Users, AlertTriangle,
   Flame, Droplets, TreePine, Bird, LayoutList, Table2, LayoutGrid,
-  AlignJustify, X,
+  AlignJustify, X, Download,
 } from 'lucide-react'
 import { Line } from 'react-chartjs-2'
 import {
@@ -434,6 +434,10 @@ export default function Alerts() {
   const [dispatched,     setDispatched]     = useState({})
   const [dispatchLog,    setDispatchLog]    = useState([])
 
+  // FIX: compute alerts here — before any useCallback that references it,
+  // and before the early return — so it is never in the Temporal Dead Zone.
+  const alerts = buildAlerts(Object.values(zonesMap))
+
   const handleDispatch = useCallback((alertId, teamId, zone, alert) => {
     setDispatched(prev => {
       const cur = prev[alertId] ? new Set(prev[alertId]) : new Set()
@@ -446,7 +450,6 @@ export default function Alerts() {
       team: team.name, dept: team.dept, zone, color: team.color,
     }, ...prev.slice(0, 9)])
 
-    // Send Telegram + browser notification with full context
     if (alert) {
       sendDispatchNotification(team, alert).catch(err =>
         console.error('[Alerts] Dispatch notification error:', err)
@@ -458,9 +461,55 @@ export default function Alerts() {
     setProblemFilter(prev => prev===type ? null : type)
   }, [])
 
-  if (loading || !Object.keys(zonesMap).length) return <LoadingSpinner message="Loading alerts…"/>
+  // FIX: alerts is now declared above — no TDZ, no stale closure
+  const handleExportAlerts = useCallback(() => {
+    const rows = [
+      ['Zone', 'Severity', 'FHI', 'Problems', 'Teams', 'Recommended Action', 'Time', 'Status'],
+      ...alerts.map(a => [
+        a.zone,
+        a.severity,
+        a.fhi,
+        a.problems.map(p => p.label).join(' | '),
+        a.teams.map(t => `${t.name} (${t.contact})`).join(' | '),
+        a.recommended,
+        a.time,
+        a.resolved ? 'Resolved' : 'Active',
+      ]),
+    ]
+    const csv  = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `vandrishti-alerts-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [alerts])
 
-  const alerts = buildAlerts(Object.values(zonesMap))
+  const handleExport = useCallback((alertList) => {
+    const rows = [
+      ['Zone', 'Severity', 'FHI', 'Problems', 'Teams', 'Time', 'Status'],
+      ...alertList.map(a => [
+        a.zone,
+        a.severity,
+        a.fhi,
+        a.problems.map(p => p.label).join(' | '),
+        a.teams.map(t => t.name).join(' | '),
+        a.time,
+        a.resolved ? 'Resolved' : 'Active',
+      ]),
+    ]
+    const csv  = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `vandrishti-alerts-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [])
+
+  if (loading || !Object.keys(zonesMap).length) return <LoadingSpinner message="Loading alerts…"/>
 
   const filtered = alerts.filter(a => {
     const sevOk = severityFilter==='all' ? true : severityFilter==='resolved' ? a.resolved : a.severity===severityFilter && !a.resolved
@@ -517,7 +566,10 @@ export default function Alerts() {
               </button>
             ))}
           </div>
-          <button className="btn btn-ghost btn-sm">Export</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => handleExport(alerts)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Download size={13}/> Export
+          </button>
         </div>
       </div>
 

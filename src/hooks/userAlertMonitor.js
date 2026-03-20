@@ -11,13 +11,13 @@
  *   }
  *
  * The hook polls zone data every 5 minutes (configurable), runs the same
- * classifier used by Alerts.jsx, and calls processAlerts() for dispatch.
- * It never re-fires the same alert within the cooldown window.
+ * classifier used by Alerts.jsx, and sends dispatch notifications for each
+ * new alert. It never re-fires the same alert within the cooldown window.
  */
 
 import { useEffect, useRef } from 'react'
 import { useAllZones } from './useZoneData'
-import { processAlerts, getNotifSettings } from '../services/notificationService'
+import { sendDispatchNotification, getNotifSettings } from '../services/notificationService'
 
 // ---------------------------------------------------------------------------
 // Alert classifier — mirrors Alerts.jsx classifyProblems / buildAlerts
@@ -25,13 +25,13 @@ import { processAlerts, getNotifSettings } from '../services/notificationService
 // ---------------------------------------------------------------------------
 
 const GOVT_CONTACTS = {
-  dfo:        { id: 'dfo',       name: 'District Forest Officer',        contact: '+91-1378-222001' },
-  rfo:        { id: 'rfo',       name: 'Range Forest Officer',           contact: '+91-1378-222045' },
-  fire_dept:  { id: 'fire_dept', name: 'State Fire & Emergency Services', contact: '+91-1378-101'    },
-  ranger:     { id: 'ranger',    name: 'Forest Ranger Team',             contact: '+91-98765-43210' },
-  wildlife:   { id: 'wildlife',  name: 'Wildlife Warden',                contact: '+91-1378-222089' },
-  sdrf:       { id: 'sdrf',      name: 'State Disaster Response Force',  contact: '+91-1378-1077'   },
-  irrigation: { id: 'irrigation',name: 'State Irrigation Dept.',         contact: '+91-1378-222110' },
+  dfo:        { id: 'dfo',        name: 'District Forest Officer',         dept: 'State Forest Dept.',           contact: '+91-1378-222001' },
+  rfo:        { id: 'rfo',        name: 'Range Forest Officer',            dept: 'Forest Range Division',        contact: '+91-1378-222045' },
+  fire_dept:  { id: 'fire_dept',  name: 'State Fire & Emergency Services', dept: 'Uttarakhand Fire Dept.',       contact: '+91-1378-101'    },
+  ranger:     { id: 'ranger',     name: 'Forest Ranger Team',              dept: 'Field Operations Unit',        contact: '+91-98765-43210' },
+  wildlife:   { id: 'wildlife',   name: 'Wildlife Warden',                 dept: 'Wildlife Crime Control',       contact: '+91-1378-222089' },
+  sdrf:       { id: 'sdrf',       name: 'State Disaster Response Force',   dept: 'SDRF Uttarakhand',             contact: '+91-1378-1077'   },
+  irrigation: { id: 'irrigation', name: 'State Irrigation Dept.',          dept: 'Water Resource Division',      contact: '+91-1378-222110' },
 }
 
 function classifyProblems(zone) {
@@ -111,6 +111,24 @@ function buildAlerts(zones) {
     })
   }
   return alerts
+}
+
+// ---------------------------------------------------------------------------
+// FIX: processAlerts was imported from notificationService but never existed
+// there. Implemented locally — sends a dispatch notification for the first
+// (highest-priority) team on each unresolved alert.
+// ---------------------------------------------------------------------------
+async function processAlerts(alerts) {
+  for (const alert of alerts) {
+    if (alert.resolved || !alert.teams.length) continue
+    // Notify for the lead team only to avoid spamming all contacts
+    const leadTeam = alert.teams[0]
+    try {
+      await sendDispatchNotification(leadTeam, alert)
+    } catch (err) {
+      console.error('[AlertMonitor] sendDispatchNotification error:', err)
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
