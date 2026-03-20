@@ -22,11 +22,11 @@ export default function Sidebar() {
         <div className="logo-icon">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M16 4C12 4 6 10 6 18c0 4 2 6 4 7l5-3V28h2V22l5 3c2-1 4-3 4-7C26 10 20 4 16 4z"
-              fill="#2ECC71" fillOpacity="0.2" stroke="#2ECC71" strokeWidth="1.5" />
-            <line x1="16" y1="14" x2="16" y2="28" stroke="#39FF6A" strokeWidth="2" strokeDasharray="2 2" />
-            <circle cx="16" cy="14" r="2" fill="#39FF6A" />
-            <circle cx="12" cy="17" r="1.2" fill="#39FF6A" fillOpacity="0.5" />
-            <circle cx="20" cy="17" r="1.2" fill="#39FF6A" fillOpacity="0.5" />
+              fill="var(--brand-green)" fillOpacity="0.2" stroke="var(--brand-green)" strokeWidth="1.5" />
+            <line x1="16" y1="14" x2="16" y2="28" stroke="var(--neon-green)" strokeWidth="2" strokeDasharray="2 2" />
+            <circle cx="16" cy="14" r="2" fill="var(--neon-green)" />
+            <circle cx="12" cy="17" r="1.2" fill="var(--neon-green)" fillOpacity="0.5" />
+            <circle cx="20" cy="17" r="1.2" fill="var(--neon-green)" fillOpacity="0.5" />
           </svg>
         </div>
         <h1>VanDrishti</h1>

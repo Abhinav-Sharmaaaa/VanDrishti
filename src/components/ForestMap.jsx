@@ -1,6 +1,8 @@
 import { useRef, useEffect } from 'react'
+import { useTheme } from '../ThemeContext'
 
 export default function ForestMap({ zones, activeZone, height }) {
+  const { theme } = useTheme()
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -16,11 +18,11 @@ export default function ForestMap({ zones, activeZone, height }) {
     const h = rect.height
 
     // Light map background
-    ctx.fillStyle = '#E2ECE5'
+    ctx.fillStyle = theme === 'dark' ? '#09090b' : '#E2ECE5'
     ctx.fillRect(0, 0, w, h)
 
     // Draw subtle grid lines
-    ctx.strokeStyle = 'rgba(180,200,185,0.5)'
+    ctx.strokeStyle = theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(180,200,185,0.5)'
     ctx.lineWidth = 0.5
     for (let x = 0; x < w; x += 40) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke()
@@ -106,7 +108,7 @@ export default function ForestMap({ zones, activeZone, height }) {
     ctx.fillText('29.5°N', 8, h - 8)
     ctx.fillText('78.8°E', w - 50, h - 8)
 
-  }, [activeZone])
+  }, [activeZone, theme])
 
   return (
     <canvas

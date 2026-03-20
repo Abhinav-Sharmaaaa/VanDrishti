@@ -1,6 +1,8 @@
 import { useRef, useEffect } from 'react'
+import { useTheme } from '../ThemeContext'
 
 export default function MiniZoneMap({ zone, color, height }) {
+  const { theme } = useTheme()
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -15,7 +17,7 @@ export default function MiniZoneMap({ zone, color, height }) {
     const w = rect.width
     const h = rect.height
 
-    ctx.fillStyle = '#E2ECE5'
+    ctx.fillStyle = theme === 'dark' ? '#18181b' : '#E2ECE5'
     ctx.fillRect(0, 0, w, h)
 
     // Terrain dots
@@ -43,7 +45,7 @@ export default function MiniZoneMap({ zone, color, height }) {
     ctx.strokeStyle = color
     ctx.lineWidth = 1.5
     ctx.stroke()
-  }, [zone, color])
+  }, [zone, color, theme])
 
   return (
     <canvas ref={canvasRef} style={{ width: '100%', height: height || 100, display: 'block', borderRadius: 8 }} />
