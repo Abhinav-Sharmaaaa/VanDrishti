@@ -86,12 +86,21 @@ function DrawHandler({ active, onComplete }) {
 }
 
 // ---------------------------------------------------------------------------
-// Fly to
+// Fly to — supports both a lat/lon point (search) and a bbox (zone click)
 // ---------------------------------------------------------------------------
 function FlyTo({ target }) {
   const map = useMap()
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lon], 9, { duration: 1.2 })
+    if (!target) return
+    if (target.bbox) {
+      // Zoom to fit the zone bounding box with comfortable padding
+      map.fitBounds(
+        [[target.bbox.minLat, target.bbox.minLon], [target.bbox.maxLat, target.bbox.maxLon]],
+        { padding: [48, 48], maxZoom: 13, duration: 1.2 }
+      )
+    } else {
+      map.flyTo([target.lat, target.lon], 9, { duration: 1.2 })
+    }
   }, [target, map])
   return null
 }
@@ -118,9 +127,8 @@ function ZoneOverlay({ zones, selectedId, onZoneClick, colorMode }) {
           weight: sel ? 3 : 1.5,
           dashArray: zone.status === 'pending' ? '6 4' : undefined,
         }}
-        eventHandlers={{ 
+        eventHandlers={{
           click: () => onZoneClick(zone.id),
-          mouseover: () => onZoneClick(zone.id)
         }}
       >
         <Tooltip className="vandrishti-popup" direction="top" sticky>
@@ -302,6 +310,18 @@ export default function ZoneMap({
   const [nameError, setNameError]     = useState('')
   const [flyTarget, setFlyTarget]     = useState(null)
   const nameRef = useRef(null)
+
+  // Zoom to selected zone whenever selectedZoneId changes
+  useEffect(() => {
+    if (!selectedZoneId) return
+    const zone = zones.find(z => z.id === selectedZoneId)
+    if (!zone) return
+    if (zone.bbox) {
+      setFlyTarget({ bbox: zone.bbox, _key: selectedZoneId })
+    } else if (zone.lat != null && zone.lon != null) {
+      setFlyTarget({ lat: zone.lat, lon: zone.lon, _key: selectedZoneId })
+    }
+  }, [selectedZoneId, zones])
 
   const handleDrawComplete = useCallback((bounds) => {
     setDrawnBounds(bounds); setDrawActive(false)
