@@ -1,19 +1,20 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Map, Activity, Bell, TrendingUp, Cpu, Settings, Sun, Moon } from 'lucide-react'
+import { Map, Activity, Bell, TrendingUp, Cpu, Settings, Sun, Moon, User } from 'lucide-react'
 import { useTheme } from '../ThemeContext'
 import { useEdgeData } from '../hooks/useEdgeData'
 
 const navItems = [
-  { to: '/dashboard', icon: Map,       label: 'Dashboard' },
-  { to: '/zones',     icon: Activity,  label: 'Forest Zones' },
-  { to: '/alerts',    icon: Bell,      label: 'Alerts', badge: 3 },
-  { to: '/analytics', icon: TrendingUp,label: 'Analytics' },
-  { to: '/edge-nodes',icon: Cpu,       label: 'Edge Nodes' },
-  { to: '/settings',  icon: Settings,  label: 'Settings' },
+  { to: '/dashboard', icon: Map,        label: 'Dashboard' },
+  { to: '/zones',     icon: Activity,   label: 'Forest Zones' },
+  { to: '/alerts',    icon: Bell,       label: 'Alerts', badge: 3 },
+  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
+  { to: '/edge-nodes',icon: Cpu,        label: 'Edge Nodes' },
+  { to: '/settings',  icon: Settings,   label: 'Settings' },
+  { to: '/profile',   icon: User,       label: 'Profile' },
 ]
 
 export default function Sidebar() {
-  const location         = useLocation()
+  const location          = useLocation()
   const { theme, toggle } = useTheme()
   const { connected, snapshots, lastSyncLabel } = useEdgeData()
 
@@ -35,17 +36,17 @@ export default function Sidebar() {
         <div className="logo-icon">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <path d="M16 4C12 4 6 10 6 18c0 4 2 6 4 7l5-3V28h2V22l5 3c2-1 4-3 4-7C26 10 20 4 16 4z"
-              fill="#2ECC71" fillOpacity="0.2" stroke="#2ECC71" strokeWidth="1.5"/>
-            <line x1="16" y1="14" x2="16" y2="28" stroke="#39FF6A" strokeWidth="2" strokeDasharray="2 2"/>
-            <circle cx="16" cy="14" r="2" fill="#39FF6A"/>
-            <circle cx="12" cy="17" r="1.2" fill="#39FF6A" fillOpacity="0.5"/>
-            <circle cx="20" cy="17" r="1.2" fill="#39FF6A" fillOpacity="0.5"/>
+              fill="var(--brand-green)" fillOpacity="0.2" stroke="var(--brand-green)" strokeWidth="1.5" />
+            <line x1="16" y1="14" x2="16" y2="28" stroke="var(--neon-green)" strokeWidth="2" strokeDasharray="2 2" />
+            <circle cx="16" cy="14" r="2" fill="var(--neon-green)" />
+            <circle cx="12" cy="17" r="1.2" fill="var(--neon-green)" fillOpacity="0.5" />
+            <circle cx="20" cy="17" r="1.2" fill="var(--neon-green)" fillOpacity="0.5" />
           </svg>
         </div>
         <h1>VanDrishti</h1>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" style={{ flex: 'none' }}>
         {navItems.map(item => {
           const Icon     = item.icon
           const isActive = location.pathname === item.to ||
@@ -60,6 +61,18 @@ export default function Sidebar() {
           )
         })}
       </nav>
+
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', userSelect: 'none' }}>
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg"
+          alt="Emblem"
+          style={{
+            width: 130,
+            opacity: theme === 'dark' ? 0.15 : 0.08,
+            filter: theme === 'dark' ? 'grayscale(1) invert(1) brightness(1.5)' : 'none'
+          }}
+        />
+      </div>
 
       <div className="sidebar-footer">
         <button onClick={toggle} className="theme-toggle"
