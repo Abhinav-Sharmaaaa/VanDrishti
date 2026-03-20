@@ -1,81 +1,66 @@
+import { useEffect, useRef, useState, useCallback } from 'react'
+
+const WS_URL = import.meta.env.VITE_BACKEND_WS || 'ws://localhost:3001'
+
 /**
- * useZoneData hooks — VanDrishti
- *
- * All hooks read from the localStorage cache written by dataCache.js / FetchModal.
- * They do NOT call external APIs directly — that is the FetchModal's job.
- *
- * useZoneData(zoneId)   → { data, loading }      single zone
- * useAllZones()         → { zones, loading }      all zones as map
- * useCacheStatus()      → { meta, stale, ageMin } cache health info
+ * Connects to backend WebSocket and receives live snapshots from RPi nodes.
+ * Each snapshot has the same shape as fetchZoneData() in dataService.js,
+ * so it can be merged directly into the zone cache.
  */
+export function useEdgeData() {
+  const [snapshots,  setSnapshots]  = useState({})   // zoneId → latest snapshot
+  const [devices,    setDevices]    = useState([])
+  const [connected,  setConnected]  = useState(false)
+  const [lastSync,   setLastSync]   = useState(null)  // timestamp of last received msg
+  const wsRef    = useRef(null)
+  const retries  = useRef(0)
+  const timerRef = useRef(null)
 
-import { useState, useEffect, useCallback } from 'react'
-import { getCachedZones, getCacheMeta, isCacheStale, cacheAgeMinutes } from '../services/dataCache'
+  const connect = useCallback(() => {
+    const ws = new WebSocket(WS_URL)
+    wsRef.current = ws
 
-// ---------------------------------------------------------------------------
-// Internal: subscribe to cache updates via a custom event
-// FetchModal dispatches 'vandrishti:cache-updated' after each successful fetch
-// ---------------------------------------------------------------------------
-const CACHE_EVENT = 'vandrishti:cache-updated'
+    ws.onopen = () => {
+      setConnected(true)
+      retries.current = 0
+      console.log('[edge-ws] Connected')
+    }
 
-export function notifyCacheUpdated() {
-  window.dispatchEvent(new CustomEvent(CACHE_EVENT))
-}
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data)
+        if (msg.type === 'snapshot') {
+          setSnapshots(prev => ({ ...prev, [msg.id]: msg }))
+          setLastSync(new Date())
+        }
+        if (msg.type === 'device_status') {
+          setDevices(prev => {
+            const next = prev.filter(d => d.deviceId !== msg.deviceId)
+            return [...next, msg]
+          })
+        }
+      } catch { /* ignore malformed */ }
+    }
 
-// ---------------------------------------------------------------------------
-// useAllZones — returns all zones from cache
-// ---------------------------------------------------------------------------
-export function useAllZones() {
-  const [zones, setZones]   = useState(() => getCachedZones() ?? {})
-  const [loading, setLoading] = useState(() => !getCachedZones())
+    ws.onclose = () => {
+      setConnected(false)
+      const delay = Math.min(1000 * 2 ** retries.current, 30_000)
+      retries.current++
+      timerRef.current = setTimeout(connect, delay)
+    }
 
-  const refresh = useCallback(() => {
-    const cached = getCachedZones()
-    if (cached) { setZones(cached); setLoading(false) }
+    ws.onerror = () => ws.close()
   }, [])
 
   useEffect(() => {
-    // Initial read
-    refresh()
+    connect()
+    return () => { clearTimeout(timerRef.current); wsRef.current?.close() }
+  }, [connect])
 
-    // Listen for cache updates from FetchModal
-    window.addEventListener(CACHE_EVENT, refresh)
-    return () => window.removeEventListener(CACHE_EVENT, refresh)
-  }, [refresh])
+  // Format last sync for display
+  const lastSyncLabel = lastSync
+    ? `${Math.round((Date.now() - lastSync.getTime()) / 60_000)} min ago`
+    : 'Never'
 
-  return { zones, loading, refresh }
-}
-
-// ---------------------------------------------------------------------------
-// useZoneData — returns a single zone from cache
-// ---------------------------------------------------------------------------
-export function useZoneData(zoneId) {
-  const { zones, loading } = useAllZones()
-  const data = zones[zoneId] ?? null
-  return { data, loading: loading || (!data && !Object.keys(zones).length) }
-}
-
-// ---------------------------------------------------------------------------
-// useCacheStatus — metadata about the cache (used by Dashboard & Settings)
-// ---------------------------------------------------------------------------
-export function useCacheStatus() {
-  const [meta, setMeta]   = useState(getCacheMeta)
-  const [stale, setStale] = useState(isCacheStale)
-  const [ageMin, setAgeMin] = useState(cacheAgeMinutes)
-
-  const refresh = useCallback(() => {
-    setMeta(getCacheMeta())
-    setStale(isCacheStale())
-    setAgeMin(cacheAgeMinutes())
-  }, [])
-
-  useEffect(() => {
-    refresh()
-    window.addEventListener(CACHE_EVENT, refresh)
-    // Also tick every minute to update age display
-    const t = setInterval(refresh, 60_000)
-    return () => { window.removeEventListener(CACHE_EVENT, refresh); clearInterval(t) }
-  }, [refresh])
-
-  return { meta, stale, ageMin, refresh }
+  return { snapshots, devices, connected, lastSync, lastSyncLabel }
 }
