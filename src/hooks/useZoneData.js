@@ -1,66 +1,63 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { getCachedZones, getCacheMeta, isCacheStale, cacheAgeMinutes } from '../services/dataCache'
 
-const WS_URL = import.meta.env.VITE_BACKEND_WS || 'ws://localhost:3001'
+const CACHE_EVENT = 'vandrishti:cache-updated'
 
-/**
- * Connects to backend WebSocket and receives live snapshots from RPi nodes.
- * Each snapshot has the same shape as fetchZoneData() in dataService.js,
- * so it can be merged directly into the zone cache.
- */
-export function useEdgeData() {
-  const [snapshots,  setSnapshots]  = useState({})   // zoneId → latest snapshot
-  const [devices,    setDevices]    = useState([])
-  const [connected,  setConnected]  = useState(false)
-  const [lastSync,   setLastSync]   = useState(null)  // timestamp of last received msg
-  const wsRef    = useRef(null)
-  const retries  = useRef(0)
-  const timerRef = useRef(null)
+export function notifyCacheUpdated() {
+  window.dispatchEvent(new CustomEvent(CACHE_EVENT))
+}
 
-  const connect = useCallback(() => {
-    const ws = new WebSocket(WS_URL)
-    wsRef.current = ws
+export function useAllZones() {
+  const [zones, setZones]   = useState(() => getCachedZones() ?? {})
+  const [loading, setLoading] = useState(() => !getCachedZones())
 
-    ws.onopen = () => {
-      setConnected(true)
-      retries.current = 0
-      console.log('[edge-ws] Connected')
-    }
-
-    ws.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data)
-        if (msg.type === 'snapshot') {
-          setSnapshots(prev => ({ ...prev, [msg.id]: msg }))
-          setLastSync(new Date())
-        }
-        if (msg.type === 'device_status') {
-          setDevices(prev => {
-            const next = prev.filter(d => d.deviceId !== msg.deviceId)
-            return [...next, msg]
-          })
-        }
-      } catch { /* ignore malformed */ }
-    }
-
-    ws.onclose = () => {
-      setConnected(false)
-      const delay = Math.min(1000 * 2 ** retries.current, 30_000)
-      retries.current++
-      timerRef.current = setTimeout(connect, delay)
-    }
-
-    ws.onerror = () => ws.close()
+  const refresh = useCallback(() => {
+    const cached = getCachedZones()
+    if (cached) { setZones(cached); setLoading(false) }
   }, [])
 
   useEffect(() => {
-    connect()
-    return () => { clearTimeout(timerRef.current); wsRef.current?.close() }
-  }, [connect])
+    
+    refresh()
 
-  // Format last sync for display
-  const lastSyncLabel = lastSync
-    ? `${Math.round((Date.now() - lastSync.getTime()) / 60_000)} min ago`
-    : 'Never'
+    
+    window.addEventListener(CACHE_EVENT, refresh)
+    return () => window.removeEventListener(CACHE_EVENT, refresh)
+  }, [refresh])
 
-  return { snapshots, devices, connected, lastSync, lastSyncLabel }
+  return { zones, loading, refresh }
+}
+
+
+
+
+export function useZoneData(zoneId) {
+  const { zones, loading } = useAllZones()
+  const data = zones[zoneId] ?? null
+  return { data, loading: loading || (!data && !Object.keys(zones).length) }
+}
+
+
+
+
+export function useCacheStatus() {
+  const [meta, setMeta]   = useState(getCacheMeta)
+  const [stale, setStale] = useState(isCacheStale)
+  const [ageMin, setAgeMin] = useState(cacheAgeMinutes)
+
+  const refresh = useCallback(() => {
+    setMeta(getCacheMeta())
+    setStale(isCacheStale())
+    setAgeMin(cacheAgeMinutes())
+  }, [])
+
+  useEffect(() => {
+    refresh()
+    window.addEventListener(CACHE_EVENT, refresh)
+    
+    const t = setInterval(refresh, 60_000)
+    return () => { window.removeEventListener(CACHE_EVENT, refresh); clearInterval(t) }
+  }, [refresh])
+
+  return { meta, stale, ageMin, refresh }
 }

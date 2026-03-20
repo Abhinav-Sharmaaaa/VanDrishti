@@ -1,10 +1,3 @@
-/**
- * ZoneMap — Real Leaflet map with NDVI visualization
- * Save to: src/components/ZoneMap.jsx
- *
- * Requires in src/main.jsx (before your own CSS):
- *   import 'leaflet/dist/leaflet.css'
- */
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   MapContainer, TileLayer, LayersControl,
