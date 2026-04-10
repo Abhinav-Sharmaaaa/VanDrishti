@@ -1,7 +1,3 @@
-<div align="center">
-  <img alt="VanDrishti" width="180" src="https://placehold.co/180x180/0f2613/4ade80?text=VD">
-</div>
-
 # VanDrishti
 
 Real-time forest health monitoring for India's wildlife reserves.
@@ -24,7 +20,7 @@ Built for **Yukti 2026**.
 ## Installation
 
 ```sh
-git clone https://github.com/<your-username>/vandrishti.git
+git clone https://github.com/Abhinav-Sharmaaaa/vandrishti.git
 cd vandrishti
 npm install
 ```
@@ -131,7 +127,7 @@ npm run preview
 
 | Name | Role |
 |---|---|
-| [Abhinav](https://github.com/AbhinavGoyal-BigStep) | Project Lead |
+| [Abhinav](https://github.com/Abhinav-Sharmaaaa) | Project Lead |
 | [ritik0436](https://github.com/ritik0436) | Frontend Developer |
 | [Arya017-Stack](https://github.com/Arya017-Stack) | QA & Bug Fixes |
 | [nikstack20](https://github.com/nikstack20) | Backend & RPi Integration |
